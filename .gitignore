@@ -1,0 +1,9 @@
+*.sln
+include/
+conf.txt
+*.exp
+*.idb
+*.dep
+*.htm
+*.manifest
+*.vcproj
