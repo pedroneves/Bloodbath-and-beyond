@@ -7,3 +7,4 @@ conf.txt
 *.htm
 *.manifest
 *.vcproj
+*.res
