@@ -9,3 +9,5 @@ conf.txt
 *.vcproj
 *.res
 gulpfile.js
+node_modules/
+package.json
