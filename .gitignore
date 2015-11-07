@@ -8,3 +8,4 @@ conf.txt
 *.manifest
 *.vcproj
 *.res
+gulpfile.js
