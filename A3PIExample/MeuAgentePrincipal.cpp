@@ -11,9 +11,10 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
-Unidade* batedor;
+Unidade* scout;
 
 bool GameOver = false;
+bool hasScout = false;
 Unidade* amigoDaVez = NULL;
 //
 
@@ -51,12 +52,19 @@ void AIConstrutora (Unidade* u){
 
 void AIBatedor (Unidade* u){
 
-	int heig = AgentePrincipal::mapHeight();
-    int wid = AgentePrincipal::mapWidth();
-	if(AgentePrincipal::isWalkable(wid, heig)){
-	
-		u->move(BWAPI::Position(wid,heig));
-	
+	int altura = 0;
+    int largura = 0;
+	altura = AgentePrincipal::mapHeight();
+    largura = AgentePrincipal::mapWidth();
+
+    /*
+		A primeira etapa do para o scout seria dividir o mapa em quadrantes.
+
+		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
+    */
+
+	if(AgentePrincipal::isWalkable((largura*0.75), altura)){
+		u->move(BWAPI::Position((largura*0.75), altura));
 	}
 	
 }
@@ -66,7 +74,7 @@ Unidade* AIGuerreiro (Unidade* caboSoldado[]){
 	Unidade* cabo = caboSoldado[0];
 	Unidade* self = caboSoldado[1];
 
-	self->attack(*(self->getEnemyUnits().begin())); //ataca uma unidade inimiga aleatoria. Assume que existe uma.
+	//self->attack(*(self->getEnemyUnits().begin())); //ataca uma unidade inimiga aleatoria. Assume que existe uma.
 	//cuidado com bugs como este. O codigo acima daria crash de null pointer no exato momento que o time inimigo
 	//nao possuisse mais unidades, antes da partida de fato acabar.
 
@@ -79,6 +87,8 @@ DWORD WINAPI threadAgente(LPVOID param){
 	Unidade *caboSoldado[2] = {NULL,u}; //caso seja soldado
 
 	while(true){
+		printf("%s\n", "hello world threadAgente");
+
 		//Se houve algum problema (ex: o jogo foi fechado) ou a unidade estah morta, finalizar a thread
 		if(GameOver || u == NULL || !u->exists()) return 0;
 		//Enquanto a unidade ainda nao terminou de ser construida ou o seu comando ainda nao foi
@@ -93,8 +103,8 @@ DWORD WINAPI threadAgente(LPVOID param){
 		}
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
-			if(u == amigoDaVez) AIConstrutora(u);
-			else if(u == batedor) AIBatedor(u);
+			if(u == amigoDaVez) AIBatedor(u);
+			else if(u == scout) AIBatedor(u);
 			else if(u->getType().isWorker()) AITrabalhador(u);
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
 		}
@@ -217,6 +227,7 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	if(tipo == BWAPI::UnitTypes::Protoss_Nexus){
 		
 		Protoss_Nexus = unidade;
+		base = Protoss_Nexus->getPosition();
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
@@ -229,6 +240,9 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
+		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
+			scout = unidade;
+		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
 	}
 }
