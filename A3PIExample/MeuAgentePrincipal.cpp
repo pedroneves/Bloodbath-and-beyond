@@ -3,8 +3,10 @@
 #include <Windows.h>
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
+using namespace BWAPI;
 
 //blackboard!
+BWAPI::Position centro;
 BWAPI::Position base;
 BWAPI::Position base_inimiga;
 
@@ -52,21 +54,34 @@ void AIConstrutora (Unidade* u){
 
 void AIBatedor (Unidade* u){
 
-	int altura = 0;
-    int largura = 0;
-	altura = AgentePrincipal::mapHeight();
-    largura = AgentePrincipal::mapWidth();
-
     /*
 		A primeira etapa do para o scout seria dividir o mapa em quadrantes.
 
 		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
     */
 
-	if(AgentePrincipal::isWalkable((largura*0.75), altura)){
-		u->move(BWAPI::Position((largura*0.75), altura));
+	BWAPI::Position positionU = u->getPosition();
+	double opostoX = 0;
+	double opostoY = 0;
+
+	bool once = true;
+
+	if(positionU.x() < centro.x()){
+		opostoX = (centro.x() - positionU.x()) + centro.x();
+	}else{
+		opostoX = centro.x() - (positionU.x() - centro.x());
 	}
-	
+
+	if(positionU.y() < centro.y()){
+		opostoY = (centro.y() - positionU.y()) + centro.y();
+	}else{
+		opostoY = centro.y() - (positionU.y() - centro.y());
+	}
+
+	if(once){
+		u->move(BWAPI::Position(opostoX, opostoY));
+		once = false;
+	}
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
@@ -228,6 +243,7 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 		
 		Protoss_Nexus = unidade;
 		base = Protoss_Nexus->getPosition();
+		centro = BWAPI::Position((AgentePrincipal::mapWidth()*32), (AgentePrincipal::mapHeight()*32));
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
@@ -241,6 +257,7 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
 		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
+			hasScout = true;
 			scout = unidade;
 		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
