@@ -3,10 +3,14 @@
 #include <Windows.h>
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
+<<<<<<< HEAD
 #include <math.h> 
+=======
+>>>>>>> 5430eeee0b2cf3099ebe0d935bc1f58af1c4a62d
 using namespace BWAPI;
 
 //blackboard!
+BWAPI::Position centro;
 BWAPI::Position base;
 BWAPI::Position base_inimiga;
 
@@ -15,7 +19,7 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
-Unidade* batedor;
+Unidade* scout;
 
 
 //RECURSOS//
@@ -29,6 +33,7 @@ bool resourceSemaphore;
 
 
 bool GameOver = false;
+bool hasScout = false;
 Unidade* amigoDaVez = NULL;
 //
 
@@ -95,14 +100,34 @@ void AITrabalhador (Unidade* u){
 
 void AIBatedor (Unidade* u){
 
-	int heig = AgentePrincipal::mapHeight();
-    int wid = AgentePrincipal::mapWidth();
-	if(AgentePrincipal::isWalkable(wid, heig)){
-	
-		u->move(BWAPI::Position(wid,heig));
-	
+    /*
+		A primeira etapa do para o scout seria dividir o mapa em quadrantes.
+
+		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
+    */
+
+	BWAPI::Position positionU = u->getPosition();
+	double opostoX = 0;
+	double opostoY = 0;
+
+	bool once = true;
+
+	if(positionU.x() < centro.x()){
+		opostoX = (centro.x() - positionU.x()) + centro.x();
+	}else{
+		opostoX = centro.x() - (positionU.x() - centro.x());
 	}
-	
+
+	if(positionU.y() < centro.y()){
+		opostoY = (centro.y() - positionU.y()) + centro.y();
+	}else{
+		opostoY = centro.y() - (positionU.y() - centro.y());
+	}
+
+	if(once){
+		u->move(BWAPI::Position(opostoX, opostoY));
+		once = false;
+	}
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
@@ -123,6 +148,8 @@ DWORD WINAPI threadAgente(LPVOID param){
 	Unidade *caboSoldado[2] = {NULL,u}; //caso seja soldado
 
 	while(true){
+		printf("%s\n", "hello world threadAgente");
+
 		//Se houve algum problema (ex: o jogo foi fechado) ou a unidade estah morta, finalizar a thread
 		if(GameOver || u == NULL || !u->exists()) return 0;
 		//Enquanto a unidade ainda nao terminou de ser construida ou o seu comando ainda nao foi
@@ -137,8 +164,14 @@ DWORD WINAPI threadAgente(LPVOID param){
 		}
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
+<<<<<<< HEAD
 			if(u == batedor){AIBatedor(u);}
 			else if(u->getType().isWorker()){AITrabalhador(u);}
+=======
+			if(u == amigoDaVez) AIBatedor(u);
+			else if(u == scout) AIBatedor(u);
+			else if(u->getType().isWorker()) AITrabalhador(u);
+>>>>>>> 5430eeee0b2cf3099ebe0d935bc1f58af1c4a62d
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
 		}
 		//
@@ -288,6 +321,8 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	if(tipo == BWAPI::UnitTypes::Protoss_Nexus){
 		
 		Protoss_Nexus = unidade;
+		base = Protoss_Nexus->getPosition();
+		centro = BWAPI::Position((AgentePrincipal::mapWidth()*32), (AgentePrincipal::mapHeight()*32));
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
@@ -300,6 +335,10 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
+		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
+			hasScout = true;
+			scout = unidade;
+		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
 	}
 }
