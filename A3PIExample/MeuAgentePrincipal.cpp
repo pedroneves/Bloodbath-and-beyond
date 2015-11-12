@@ -3,8 +3,8 @@
 #include <Windows.h>
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
-using namespace BWAPI;
-using namespace std;
+#include <stdio.h>
+#include <math.h>
 
 
 //blackboard!
@@ -15,7 +15,12 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
+// Scout vars
 Unidade* scout;
+char currentDestSector;
+bool isInLoop = false;
+
+// END SCOUT VARS
 
 bool GameOver = false;
 bool hasScout = false;
@@ -140,7 +145,43 @@ BWAPI::Position getSectorCenter (char s){
 	if(s == 'Z') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) (L2 + halfSectorHeight));
 }
 
+int distance (BWAPI::Position p1, BWAPI::Position p2){
+	return (int) sqrt(pow((double)(p1.x() - p2.x()), 2) + pow((double)(p1.y() - p2.y()), 2));
+}
+
+char nextSector (Unidade* u){
+	/*
+		Retorna para qual setor o scout deve ir.
+		A partir do setor atual, segue em um sentido horario.
+
+		Considera-se que o scout atingiu o setor, quando ele estiver
+		dentro de um raio de tolerancia do destino, definido por
+		goalRadius
+	*/
+
+	int goalRadius = 50;
+
+	char currentSector = getSector((u->getPosition()));
+	BWAPI::Position currentSectorCenter = getSectorCenter(currentSector);
+
+	if(distance(u->getPosition(), currentSectorCenter) > goalRadius){
+		return currentSector;
+	}else{
+		if(currentSector == 'A') return 'B';
+		if(currentSector == 'B') return 'C';
+		if(currentSector == 'C') return 'M';
+		if(currentSector == 'K') return 'A';
+		if(currentSector == 'L') return 'B';
+		if(currentSector == 'M') return 'Z';
+		if(currentSector == 'X') return 'K';
+		if(currentSector == 'Y') return 'X';
+		if(currentSector == 'Z') return 'Y';
+	}
+}
+
+ 
 void AIBatedor (Unidade* u){
+	printf("Scout!");
 
     /*
 		A primeira etapa do para o scout seria dividir o mapa em quadrantes.
@@ -148,25 +189,7 @@ void AIBatedor (Unidade* u){
 		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
     */
 
-	BWAPI::Position positionU = u->getPosition();
-	double opostoX = 0;
-	double opostoY = 0;
-
-	/*if(positionU.x() < centro.x()){
-		opostoX = (centro.x() - positionU.x()) + centro.x();
-	}else{
-		opostoX = centro.x() - (positionU.x() - centro.x());
-	}
-
-	if(positionU.y() < centro.y()){
-		opostoY = (centro.y() - positionU.y()) + centro.y();
-	}else{
-		opostoY = centro.y() - (positionU.y() - centro.y());
-	}*/
-
-	if(positionU.x() != centro.x() || positionU.y() != centro.y()){
-		u->rightClick(centro);
-	}
+	u->rightClick(getSectorCenter(nextSector(u)));
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
