@@ -4,6 +4,8 @@
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
 using namespace BWAPI;
+using namespace std;
+
 
 //blackboard!
 BWAPI::Position centro;
@@ -52,6 +54,92 @@ void AIConstrutora (Unidade* u){
 	amigoDaVez = NULL;//Bug aqui: amigoDaVez vai ser escolhido de novo antes mesmo do predio terminar...
 }
 
+char getSector (BWAPI::Position p){
+	/*
+		Dividindo o mapa em 9 setores:
+
+			   (C1)   (C2)
+			  A  |  B  |  C  
+			----------------- (L1)
+			  K  |  L  |  M  
+			----------------- (L2)
+			  X  |  Y  |  Z  
+
+		A funcao recebe uma posicao e retorna em qual setor estah
+	*/
+
+	int width = centro.x()*2;
+	int height = centro.y()*2;
+
+	double C1 = width / 3;
+	double C2 = (2*width) / 3;
+
+	double L1 = height / 3;
+	double L2 = (2*height) / 3;
+
+	if(p.x() < C1 && p.y() < L1) return 'A';
+	if(p.x() > C1 && p.x() < C2 && p.y() < L1) return 'B';
+	if(p.x() > C2 && p.y() < L1) return 'C';
+
+	if(p.x() < C1 && p.y() > L1 && p.y() < L2) return 'K';
+	if(p.x() > C1 && p.x() < C2 && p.y() > L1 && p.y() < L2) return 'L';
+	if(p.x() > C2 && p.y() > L1 && p.y() < L2) return 'M';
+
+	if(p.x() < C1 && p.y() > L2) return 'X';
+	if(p.x() > C1 && p.x() < C2 && p.y() > L2) return 'Y';
+	if(p.x() > C2 && p.y() > L2) return 'Z';
+}
+
+char getOppositeSector (char s){
+	if(s == 'A') return 'Z';
+	if(s == 'B') return 'Y';
+	if(s == 'C') return 'X';
+	if(s == 'K') return 'M';
+	if(s == 'L') return 'L';
+	if(s == 'M') return 'K';
+	if(s == 'X') return 'C';
+	if(s == 'Y') return 'B';
+	if(s == 'Z') return 'A';
+}
+
+BWAPI::Position getSectorCenter (char s){
+
+	/*
+		Dividindo o mapa em 9 setores:
+
+			   (C1)   (C2)
+			  A  |  B  |  C  
+			----------------- (L1)
+			  K  |  L  |  M  
+			----------------- (L2)
+			  X  |  Y  |  Z  
+
+		A funcao recebe um setor e retorna o ponto central do setor
+	*/
+
+	int width = centro.x()*2;
+	int height = centro.y()*2;
+
+	double C1 = width / 3;
+	double C2 = (2*width) / 3;
+
+	double L1 = height / 3;
+	double L2 = (2*height) / 3;
+
+	double halfSectorWidth = (C1 / 2);
+	double halfSectorHeight = (L1 / 2);
+
+	if(s == 'A') return BWAPI::Position((int) halfSectorWidth, (int) halfSectorHeight);
+	if(s == 'B') return BWAPI::Position((int) (C1 + halfSectorWidth), (int) halfSectorHeight);
+	if(s == 'C') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) halfSectorHeight);
+	if(s == 'K') return BWAPI::Position((int) halfSectorWidth, (int) (L1 + halfSectorHeight));
+	if(s == 'L') return BWAPI::Position((int) (C1 + halfSectorWidth), (int) (L1 + halfSectorHeight));
+	if(s == 'M') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) (L1 + halfSectorHeight));
+	if(s == 'X') return BWAPI::Position((int) halfSectorWidth, (int) (L2 + halfSectorHeight));
+	if(s == 'Y') return BWAPI::Position((int) (C1 + halfSectorWidth), (int) (L2 + halfSectorHeight));
+	if(s == 'Z') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) (L2 + halfSectorHeight));
+}
+
 void AIBatedor (Unidade* u){
 
     /*
@@ -64,9 +152,7 @@ void AIBatedor (Unidade* u){
 	double opostoX = 0;
 	double opostoY = 0;
 
-	bool once = true;
-
-	if(positionU.x() < centro.x()){
+	/*if(positionU.x() < centro.x()){
 		opostoX = (centro.x() - positionU.x()) + centro.x();
 	}else{
 		opostoX = centro.x() - (positionU.x() - centro.x());
@@ -76,11 +162,10 @@ void AIBatedor (Unidade* u){
 		opostoY = (centro.y() - positionU.y()) + centro.y();
 	}else{
 		opostoY = centro.y() - (positionU.y() - centro.y());
-	}
+	}*/
 
-	if(once){
-		u->move(BWAPI::Position(opostoX, opostoY));
-		once = false;
+	if(positionU.x() != centro.x() || positionU.y() != centro.y()){
+		u->rightClick(centro);
 	}
 }
 
@@ -118,7 +203,7 @@ DWORD WINAPI threadAgente(LPVOID param){
 		}
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
-			if(u == amigoDaVez) AIBatedor(u);
+			if(u == amigoDaVez) AIConstrutora(u);
 			else if(u == scout) AIBatedor(u);
 			else if(u->getType().isWorker()) AITrabalhador(u);
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
@@ -243,7 +328,9 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 		
 		Protoss_Nexus = unidade;
 		base = Protoss_Nexus->getPosition();
-		centro = BWAPI::Position((AgentePrincipal::mapWidth()*32), (AgentePrincipal::mapHeight()*32));
+		int halfWidth = (AgentePrincipal::mapWidth()*16);
+		int halfHeight = (AgentePrincipal::mapHeight()*16);
+		centro = BWAPI::Position(halfWidth, halfHeight);
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
