@@ -21,18 +21,26 @@ BOOL APIENTRY DllMain( HANDLE hModule,
 
  extern "C" __declspec(dllexport) void* newAIModule(void* game)
 {
+	printf("Competition...\n");
 	agentePrincipal = new MeuAgentePrincipal();
 	return AgentePrincipal::NewAiModule(game);
 }
 
 #elif _MODO_TESTE_
 
-#include <Gerente.h>
+#include <windows.h>
+#include <stdio.h>
+#include <tchar.h>
+
+
 #include "MeuAgentePrincipal.h"
+#include <Unidade.h>
 #include <AgentePrincipal.h>
+#include <Gerente.h>
 
 int main(){
 	agentePrincipal = new MeuAgentePrincipal();
+	printf("Testing...\n");
 	AgentePrincipal::IniciarEmModoTeste();	
 	return 0;
 }

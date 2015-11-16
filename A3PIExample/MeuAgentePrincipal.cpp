@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 
-
+ 
 //blackboard!
 BWAPI::Position centro;
 BWAPI::Position base;
@@ -19,6 +19,10 @@ Unidade* Protoss_Gateway;
 Unidade* scout;
 char currentDestSector;
 bool isInLoop = false;
+int goalRadius = 50;
+double lastDistanceToNextSector = 100000;
+int nextSectorReachTryAmount = 0;
+int maxAmountTryReachGoalRadius = 5;
 
 // END SCOUT VARS
 
@@ -26,6 +30,22 @@ bool GameOver = false;
 bool hasScout = false;
 Unidade* amigoDaVez = NULL;
 //
+
+std::wstring s2ws(const std::string& s){
+    int len;
+    int slength = (int)s.length() + 1;
+    len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0); 
+    wchar_t* buf = new wchar_t[len];
+    MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
+    std::wstring r(buf);
+    delete[] buf;
+    return r;
+}
+
+void debug (std::string s){
+	std::wstring stemp = s2ws(s);
+	OutputDebugString(stemp.c_str());
+}
 
 void AITrabalhador (Unidade* u){
 	double distance = 99999;
@@ -158,30 +178,66 @@ char nextSector (Unidade* u){
 		dentro de um raio de tolerancia do destino, definido por
 		goalRadius
 	*/
-
-	int goalRadius = 50;
+ 
+ 	std::string dbgmsg;
 
 	char currentSector = getSector((u->getPosition()));
+	char next = currentSector;
 	BWAPI::Position currentSectorCenter = getSectorCenter(currentSector);
+	lastDistanceToNextSector = distance(u->getPosition(), currentSectorCenter);
 
 	if(distance(u->getPosition(), currentSectorCenter) > goalRadius){
-		return currentSector;
+		next = currentSector;
+
+		/*
+			Verifica se a regiao de tolerancia (goalRadius) eh alcancavel. Tenta alcanca-la por 
+			<maxAmountTryReachGoalRadius> se notar em algum momento que que a distancia nao diminui
+			acrescenta uma tentativa.
+
+			Se estourar as possibilidades aumenta o goalRadius. O goalRadius aumenta ateh atingir o
+			batedor nesse caso ele passa para o proximo setor;
+		*/
+		if(distance(u->getPosition(), currentSectorCenter) >= lastDistanceToNextSector){
+			nextSectorReachTryAmount = nextSectorReachTryAmount + 1;
+		}
+
+		if(nextSectorReachTryAmount >= maxAmountTryReachGoalRadius){
+			goalRadius = goalRadius + 50;
+			nextSectorReachTryAmount = 0;
+		}
 	}else{
-		if(currentSector == 'A') return 'B';
-		if(currentSector == 'B') return 'C';
-		if(currentSector == 'C') return 'M';
-		if(currentSector == 'K') return 'A';
-		if(currentSector == 'L') return 'B';
-		if(currentSector == 'M') return 'Z';
-		if(currentSector == 'X') return 'K';
-		if(currentSector == 'Y') return 'X';
-		if(currentSector == 'Z') return 'Y';
+		if(currentSector == 'A') next = 'B';
+		if(currentSector == 'B') next = 'C';
+		if(currentSector == 'C') next = 'M';
+		if(currentSector == 'K') next = 'A';
+		if(currentSector == 'L') next = 'B';
+		if(currentSector == 'M') next = 'Z';
+		if(currentSector == 'X') next = 'K';
+		if(currentSector == 'Y') next = 'X';
+		if(currentSector == 'Z') next = 'Y';
+
+		// reseta os parametros
+		goalRadius = 50;
+		nextSectorReachTryAmount = 0;
 	}
+
+ 	dbgmsg = "Next sector ";
+	dbgmsg = dbgmsg + " is '";
+	dbgmsg = dbgmsg + next;
+	dbgmsg = dbgmsg + "' with goalRadius: ";
+	dbgmsg = dbgmsg + SSTR(goalRadius);
+	dbgmsg = dbgmsg + " | Try: ";
+	dbgmsg = dbgmsg + SSTR(nextSectorReachTryAmount);
+	dbgmsg = dbgmsg + " | Max: ";
+	dbgmsg = dbgmsg + SSTR(maxAmountTryReachGoalRadius); 
+
+	debug(dbgmsg + "\n");
+
+	return next;
 }
 
  
 void AIBatedor (Unidade* u){
-	printf("Scout!");
 
     /*
 		A primeira etapa do para o scout seria dividir o mapa em quadrantes.
@@ -204,14 +260,14 @@ Unidade* AIGuerreiro (Unidade* caboSoldado[]){
 	return cabo;
 }
 
+
 DWORD WINAPI threadAgente(LPVOID param){
+	
 	
 	Unidade* u = (Unidade*) param;
 	Unidade *caboSoldado[2] = {NULL,u}; //caso seja soldado
 
 	while(true){
-		printf("%s\n", "hello world threadAgente");
-
 		//Se houve algum problema (ex: o jogo foi fechado) ou a unidade estah morta, finalizar a thread
 		if(GameOver || u == NULL || !u->exists()) return 0;
 		//Enquanto a unidade ainda nao terminou de ser construida ou o seu comando ainda nao foi
@@ -344,6 +400,7 @@ void MeuAgentePrincipal::onEnd(bool isWinner){
 }
 
 void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
+
 	//Uma nova unidade sua foi criada (isto inclui as do inicio da partida). Implemente aqui como quer tratar ela.
 	BWAPI::UnitType tipo = unidade->getType();
 	
