@@ -5,7 +5,7 @@
 #include <BWAPI\UnitType.h>
 #include <stdio.h>
 #include <math.h>
-
+#include <ctime>
  
 //blackboard!
 BWAPI::Position centro;
@@ -22,7 +22,24 @@ bool isInLoop = false;
 int goalRadius = 50;
 double lastDistanceToNextSector = 100000;
 int nextSectorReachTryAmount = 0;
-int maxAmountTryReachGoalRadius = 5;
+int maxAmountTryReachGoalRadius = 3;
+
+BWAPI::Position firstEnemyStructureFoundPosition;
+bool foundFirstEnemyStructure = false;
+BWAPI::Position enemyCommandPosition;
+bool foundEnemyCommand = false;
+
+int spiralTurn = 1;
+int spiralSector = 0;
+int spiralRadiusDelta = 35;
+int spiralGoalRadius = 5;
+BWAPI::Position nextSpiralSectorPosition;
+double lastDistanceToNextSpiralSector;
+int nextSpiralSectorReachTryAmount = 0;
+int maxAmountTryReachSpiralGoalRadius = 3;
+
+double enemyCheckInterval = 1;
+double nextEnemyCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + enemyCheckInterval;
 
 // END SCOUT VARS
 
@@ -169,6 +186,135 @@ int distance (BWAPI::Position p1, BWAPI::Position p2){
 	return (int) sqrt(pow((double)(p1.x() - p2.x()), 2) + pow((double)(p1.y() - p2.y()), 2));
 }
 
+bool isStructure (Unidade* u){
+	BWAPI::UnitType t = u->getType();
+
+	return
+		t == BWAPI::UnitTypes::Zerg_Infested_Command_Center ||
+		t == BWAPI::UnitTypes::Zerg_Hatchery ||
+		t == BWAPI::UnitTypes::Zerg_Lair ||
+		t == BWAPI::UnitTypes::Zerg_Hive ||
+		t == BWAPI::UnitTypes::Zerg_Nydus_Canal ||
+		t == BWAPI::UnitTypes::Zerg_Hydralisk_Den ||
+		t == BWAPI::UnitTypes::Zerg_Defiler_Mound ||
+		t == BWAPI::UnitTypes::Zerg_Greater_Spire ||
+		t == BWAPI::UnitTypes::Zerg_Queens_Nest ||
+		t == BWAPI::UnitTypes::Zerg_Evolution_Chamber ||
+		t == BWAPI::UnitTypes::Zerg_Ultralisk_Cavern ||
+		t == BWAPI::UnitTypes::Zerg_Spire ||
+		t == BWAPI::UnitTypes::Zerg_Spawning_Pool ||
+		t == BWAPI::UnitTypes::Zerg_Creep_Colony ||
+		t == BWAPI::UnitTypes::Zerg_Spore_Colony ||
+		t == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
+		t == BWAPI::UnitTypes::Zerg_Extractor ||
+		t == BWAPI::UnitTypes::Protoss_Nexus ||
+		t == BWAPI::UnitTypes::Protoss_Robotics_Facility ||
+		t == BWAPI::UnitTypes::Protoss_Pylon ||
+		t == BWAPI::UnitTypes::Protoss_Assimilator ||
+		t == BWAPI::UnitTypes::Protoss_Observatory ||
+		t == BWAPI::UnitTypes::Protoss_Gateway ||
+		t == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
+		t == BWAPI::UnitTypes::Protoss_Citadel_of_Adun ||
+		t == BWAPI::UnitTypes::Protoss_Cybernetics_Core ||
+		t == BWAPI::UnitTypes::Protoss_Templar_Archives ||
+		t == BWAPI::UnitTypes::Protoss_Forge ||
+		t == BWAPI::UnitTypes::Protoss_Stargate ||
+		t == BWAPI::UnitTypes::Protoss_Fleet_Beacon ||
+		t == BWAPI::UnitTypes::Protoss_Arbiter_Tribunal ||
+		t == BWAPI::UnitTypes::Protoss_Robotics_Support_Bay ||
+		t == BWAPI::UnitTypes::Protoss_Shield_Battery ||
+		t == BWAPI::UnitTypes::Terran_Command_Center ||
+		t == BWAPI::UnitTypes::Terran_Comsat_Station ||
+		t == BWAPI::UnitTypes::Terran_Nuclear_Silo ||
+		t == BWAPI::UnitTypes::Terran_Supply_Depot ||
+		t == BWAPI::UnitTypes::Terran_Refinery ||
+		t == BWAPI::UnitTypes::Terran_Barracks ||
+		t == BWAPI::UnitTypes::Terran_Academy ||
+		t == BWAPI::UnitTypes::Terran_Factory ||
+		t == BWAPI::UnitTypes::Terran_Starport ||
+		t == BWAPI::UnitTypes::Terran_Control_Tower ||
+		t == BWAPI::UnitTypes::Terran_Science_Facility ||
+		t == BWAPI::UnitTypes::Terran_Covert_Ops ||
+		t == BWAPI::UnitTypes::Terran_Physics_Lab ||
+		t == BWAPI::UnitTypes::Terran_Machine_Shop ||
+		t == BWAPI::UnitTypes::Terran_Engineering_Bay ||
+		t == BWAPI::UnitTypes::Terran_Armory ||
+		t == BWAPI::UnitTypes::Terran_Missile_Turret ||
+		t == BWAPI::UnitTypes::Terran_Bunker ||
+		u->isBeingConstructed();
+	;
+}
+
+bool isCommandCenter (Unidade* u){
+	BWAPI::UnitType t = u->getType();
+
+	return
+		t == BWAPI::UnitTypes::Zerg_Infested_Command_Center ||
+		t == BWAPI::UnitTypes::Protoss_Nexus ||
+		t == BWAPI::UnitTypes::Terran_Command_Center
+	;
+}
+
+bool seesEnemyStructure (Unidade* u){
+	std::set<Unidade*> e = u->getEnemyUnits();
+	std::set<Unidade*>::iterator it;
+
+	if(e.empty()){
+		debug("I see no enemy units\n");
+		return false;	
+	}else{
+
+		for (it = e.begin(); it != e.end(); ++it){
+			Unidade* f = *it;
+						
+			if(u->isEnemy(f) && isStructure(f)){
+				
+				debug("I see enemy structures!\n");				
+
+				if(!foundFirstEnemyStructure){
+					u->stop();
+					firstEnemyStructureFoundPosition = f->getPosition();
+					foundFirstEnemyStructure = true;
+					debug("First Enemy structure found at " + SSTR(firstEnemyStructureFoundPosition.x()) + " " + SSTR(firstEnemyStructureFoundPosition.y()) + "\n");
+				}
+
+				return true;
+			}
+		}
+
+		debug("\nNah...No structures, just units =/\n");
+
+		return false;
+	}
+}
+
+bool seesEnemyCommand (Unidade* u){
+	std::set<Unidade*> e = u->getEnemyUnits();
+	std::set<Unidade*>::iterator it;
+
+	if(e.empty()){
+		return false;	
+	}else{
+
+		for (it = e.begin(); it != e.end(); ++it){
+			Unidade* f = *it;
+			
+			if(u->isEnemy(f) && isCommandCenter(f)){
+				if(!foundEnemyCommand){
+					enemyCommandPosition = f->getPosition();
+					foundEnemyCommand = true;
+					debug("Enemy command found at " + SSTR(enemyCommandPosition.x()) + " " + SSTR(enemyCommandPosition.y()) + "\n");
+				}
+
+				return true;
+			}
+
+		}
+
+		return false;
+	}
+}
+
 char nextSector (Unidade* u){
 	/*
 		Retorna para qual setor o scout deve ir.
@@ -209,8 +355,8 @@ char nextSector (Unidade* u){
 		if(currentSector == 'A') next = 'B';
 		if(currentSector == 'B') next = 'C';
 		if(currentSector == 'C') next = 'M';
-		if(currentSector == 'K') next = 'A';
-		if(currentSector == 'L') next = 'B';
+		if(currentSector == 'K') next = 'L';
+		if(currentSector == 'L') next = 'A';
 		if(currentSector == 'M') next = 'Z';
 		if(currentSector == 'X') next = 'K';
 		if(currentSector == 'Y') next = 'X';
@@ -236,7 +382,62 @@ char nextSector (Unidade* u){
 	return next;
 }
 
- 
+BWAPI::Position nextSpiralPosition (Unidade* u, BWAPI::Position center){
+	/*
+		Faz o batedor andar em expiral, em torno da primeira unidade encontrada.
+
+		Para cada volta, divide a circunferencia em quatro setores que serao para onde
+		o batedor ira se mover. Se no final de uma volta, nao encontrar o centro de comando
+		inicia mais uma volta porem dessa vez, com o raio maior em spiralRadiusDelta
+	*/
+
+	int spiralRadius = (spiralTurn*spiralRadiusDelta);
+
+	if(distance(u->getPosition(), nextSpiralSectorPosition) > spiralGoalRadius){
+		if(distance(u->getPosition(), nextSpiralSectorPosition) >= lastDistanceToNextSpiralSector){
+			nextSpiralSectorReachTryAmount = nextSpiralSectorReachTryAmount + 1;
+		}
+
+		if(nextSpiralSectorReachTryAmount >= maxAmountTryReachSpiralGoalRadius){
+			spiralSector = spiralSector + 1;
+			nextSpiralSectorReachTryAmount = 0;
+		}
+	}else{
+		nextSpiralSectorReachTryAmount = 0;
+		spiralSector = spiralSector + 1;
+	}
+
+	if(spiralSector == 0){
+		nextSpiralSectorPosition = BWAPI::Position(center.x(), (center.y() - spiralRadius));
+	}else if(spiralSector == 1){
+		nextSpiralSectorPosition = BWAPI::Position((center.x() + spiralRadius), center.y());
+	}else if(spiralSector == 2){
+		nextSpiralSectorPosition = BWAPI::Position(center.x(), (center.y() + spiralRadius));
+	}else if(spiralSector == 3){
+		nextSpiralSectorPosition = BWAPI::Position((center.x() - spiralRadius), center.y());
+
+		// fim da volta. Incrementa a volta e reinicia o sector
+		spiralTurn = spiralTurn + 1;
+		spiralSector = -1;
+	}
+
+	debug("Walking in spiral. Turn: " + SSTR(spiralTurn) + " | Sector: " + SSTR(spiralSector) + " | Tries: " + SSTR(nextSpiralSectorReachTryAmount) + "\n");
+
+	return nextSpiralSectorPosition;
+}
+
+void scoutVision (Unidade* u){
+	double now = std::clock() / (double) CLOCKS_PER_SEC;
+
+	if(now > nextEnemyCheck){
+		if(seesEnemyStructure(u)){
+			seesEnemyCommand(u);
+		}
+
+		nextEnemyCheck = now + enemyCheckInterval;
+	}
+}
+
 void AIBatedor (Unidade* u){
 
     /*
@@ -245,7 +446,17 @@ void AIBatedor (Unidade* u){
 		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
     */
 
-	u->rightClick(getSectorCenter(nextSector(u)));
+	if(foundFirstEnemyStructure){
+
+		if(foundEnemyCommand){
+			u->move(nextSpiralPosition(u, enemyCommandPosition));
+		}else{
+			u->move(nextSpiralPosition(u, firstEnemyStructureFoundPosition));
+		}
+
+	}else{
+		u->rightClick(getSectorCenter(nextSector(u)));
+	}
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
@@ -280,6 +491,11 @@ DWORD WINAPI threadAgente(LPVOID param){
 			Sleep(10);
 			continue;
 		}
+
+		if(u == scout) {
+			scoutVision(u);
+		};
+
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
 			if(u == amigoDaVez) AIConstrutora(u);
