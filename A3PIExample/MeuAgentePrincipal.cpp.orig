@@ -3,14 +3,16 @@
 #include <Windows.h>
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
+<<<<<<< HEAD
+#include <math.h> 
+using namespace BWAPI;
+=======
 #include <stdio.h>
 #include <math.h>
-#include <ctime>
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 
-using namespace BWAPI;
  
 //blackboard!
-BWAPI::Position centro;
 BWAPI::Position base;
 BWAPI::Position base_inimiga;
 
@@ -19,33 +21,9 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
-// Scout vars
-Unidade* scout;
-char currentDestSector;
-bool isInLoop = false;
-int goalRadius = 50;
-double lastDistanceToNextSector = 100000;
-int nextSectorReachTryAmount = 0;
-int maxAmountTryReachGoalRadius = 3;
+<<<<<<< HEAD
+Unidade* batedor;
 
-BWAPI::Position firstEnemyStructureFoundPosition;
-bool foundFirstEnemyStructure = false;
-BWAPI::Position enemyCommandPosition;
-bool foundEnemyCommand = false;
-
-int spiralTurn = 1;
-int spiralSector = 0;
-int spiralRadiusDelta = 35;
-int spiralGoalRadius = 5;
-BWAPI::Position nextSpiralSectorPosition;
-double lastDistanceToNextSpiralSector;
-int nextSpiralSectorReachTryAmount = 0;
-int maxAmountTryReachSpiralGoalRadius = 3;
-
-double enemyCheckInterval = 1;
-double nextEnemyCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + enemyCheckInterval;
-
-// END SCOUT VARS
 
 //RECURSOS//
 Unidade* Protoss_Gateways [10];
@@ -59,11 +37,26 @@ bool resourceSemaphore;
 bool pylonBuildingSemaphore;
 
 
+=======
+// Scout vars
+Unidade* scout;
+char currentDestSector;
+bool isInLoop = false;
+int goalRadius = 50;
+double lastDistanceToNextSector = 100000;
+int nextSectorReachTryAmount = 0;
+int maxAmountTryReachGoalRadius = 5;
+
+// END SCOUT VARS
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 
 bool GameOver = false;
-bool hasScout = false;
 
 //
+
+<<<<<<< HEAD
+//Modificado.
+=======
 std::wstring s2ws(const std::string& s){
     int len;
     int slength = (int)s.length() + 1;
@@ -80,6 +73,7 @@ void debug (std::string s){
 	OutputDebugString(stemp.c_str());
 }
 
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 void AITrabalhador (Unidade* u){
 	double distance = 99999;
 	Unidade* mineralPerto = NULL;
@@ -101,6 +95,16 @@ char getSector (BWAPI::Position p){
 	/*
 		Dividindo o mapa em 9 setores:
 
+<<<<<<< HEAD
+	int heig = AgentePrincipal::mapHeight();
+    int wid = AgentePrincipal::mapWidth();
+	if(AgentePrincipal::isWalkable(wid, heig)){
+	
+		u->move(BWAPI::Position(wid,heig));
+	
+	}
+	
+=======
 			   (C1)   (C2)
 			  A  |  B  |  C  
 			----------------- (L1)
@@ -187,135 +191,6 @@ int distance (BWAPI::Position p1, BWAPI::Position p2){
 	return (int) sqrt(pow((double)(p1.x() - p2.x()), 2) + pow((double)(p1.y() - p2.y()), 2));
 }
 
-bool isStructure (Unidade* u){
-	BWAPI::UnitType t = u->getType();
-
-	return
-		t == BWAPI::UnitTypes::Zerg_Infested_Command_Center ||
-		t == BWAPI::UnitTypes::Zerg_Hatchery ||
-		t == BWAPI::UnitTypes::Zerg_Lair ||
-		t == BWAPI::UnitTypes::Zerg_Hive ||
-		t == BWAPI::UnitTypes::Zerg_Nydus_Canal ||
-		t == BWAPI::UnitTypes::Zerg_Hydralisk_Den ||
-		t == BWAPI::UnitTypes::Zerg_Defiler_Mound ||
-		t == BWAPI::UnitTypes::Zerg_Greater_Spire ||
-		t == BWAPI::UnitTypes::Zerg_Queens_Nest ||
-		t == BWAPI::UnitTypes::Zerg_Evolution_Chamber ||
-		t == BWAPI::UnitTypes::Zerg_Ultralisk_Cavern ||
-		t == BWAPI::UnitTypes::Zerg_Spire ||
-		t == BWAPI::UnitTypes::Zerg_Spawning_Pool ||
-		t == BWAPI::UnitTypes::Zerg_Creep_Colony ||
-		t == BWAPI::UnitTypes::Zerg_Spore_Colony ||
-		t == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
-		t == BWAPI::UnitTypes::Zerg_Extractor ||
-		t == BWAPI::UnitTypes::Protoss_Nexus ||
-		t == BWAPI::UnitTypes::Protoss_Robotics_Facility ||
-		t == BWAPI::UnitTypes::Protoss_Pylon ||
-		t == BWAPI::UnitTypes::Protoss_Assimilator ||
-		t == BWAPI::UnitTypes::Protoss_Observatory ||
-		t == BWAPI::UnitTypes::Protoss_Gateway ||
-		t == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
-		t == BWAPI::UnitTypes::Protoss_Citadel_of_Adun ||
-		t == BWAPI::UnitTypes::Protoss_Cybernetics_Core ||
-		t == BWAPI::UnitTypes::Protoss_Templar_Archives ||
-		t == BWAPI::UnitTypes::Protoss_Forge ||
-		t == BWAPI::UnitTypes::Protoss_Stargate ||
-		t == BWAPI::UnitTypes::Protoss_Fleet_Beacon ||
-		t == BWAPI::UnitTypes::Protoss_Arbiter_Tribunal ||
-		t == BWAPI::UnitTypes::Protoss_Robotics_Support_Bay ||
-		t == BWAPI::UnitTypes::Protoss_Shield_Battery ||
-		t == BWAPI::UnitTypes::Terran_Command_Center ||
-		t == BWAPI::UnitTypes::Terran_Comsat_Station ||
-		t == BWAPI::UnitTypes::Terran_Nuclear_Silo ||
-		t == BWAPI::UnitTypes::Terran_Supply_Depot ||
-		t == BWAPI::UnitTypes::Terran_Refinery ||
-		t == BWAPI::UnitTypes::Terran_Barracks ||
-		t == BWAPI::UnitTypes::Terran_Academy ||
-		t == BWAPI::UnitTypes::Terran_Factory ||
-		t == BWAPI::UnitTypes::Terran_Starport ||
-		t == BWAPI::UnitTypes::Terran_Control_Tower ||
-		t == BWAPI::UnitTypes::Terran_Science_Facility ||
-		t == BWAPI::UnitTypes::Terran_Covert_Ops ||
-		t == BWAPI::UnitTypes::Terran_Physics_Lab ||
-		t == BWAPI::UnitTypes::Terran_Machine_Shop ||
-		t == BWAPI::UnitTypes::Terran_Engineering_Bay ||
-		t == BWAPI::UnitTypes::Terran_Armory ||
-		t == BWAPI::UnitTypes::Terran_Missile_Turret ||
-		t == BWAPI::UnitTypes::Terran_Bunker ||
-		u->isBeingConstructed();
-	;
-}
-
-bool isCommandCenter (Unidade* u){
-	BWAPI::UnitType t = u->getType();
-
-	return
-		t == BWAPI::UnitTypes::Zerg_Infested_Command_Center ||
-		t == BWAPI::UnitTypes::Protoss_Nexus ||
-		t == BWAPI::UnitTypes::Terran_Command_Center
-	;
-}
-
-bool seesEnemyStructure (Unidade* u){
-	std::set<Unidade*> e = u->getEnemyUnits();
-	std::set<Unidade*>::iterator it;
-
-	if(e.empty()){
-		debug("I see no enemy units\n");
-		return false;	
-	}else{
-
-		for (it = e.begin(); it != e.end(); ++it){
-			Unidade* f = *it;
-						
-			if(u->isEnemy(f) && isStructure(f)){
-				
-				debug("I see enemy structures!\n");				
-
-				if(!foundFirstEnemyStructure){
-					u->stop();
-					firstEnemyStructureFoundPosition = f->getPosition();
-					foundFirstEnemyStructure = true;
-					debug("First Enemy structure found at " + SSTR(firstEnemyStructureFoundPosition.x()) + " " + SSTR(firstEnemyStructureFoundPosition.y()) + "\n");
-				}
-
-				return true;
-			}
-		}
-
-		debug("\nNah...No structures, just units =/\n");
-
-		return false;
-	}
-}
-
-bool seesEnemyCommand (Unidade* u){
-	std::set<Unidade*> e = u->getEnemyUnits();
-	std::set<Unidade*>::iterator it;
-
-	if(e.empty()){
-		return false;	
-	}else{
-
-		for (it = e.begin(); it != e.end(); ++it){
-			Unidade* f = *it;
-			
-			if(u->isEnemy(f) && isCommandCenter(f)){
-				if(!foundEnemyCommand){
-					enemyCommandPosition = f->getPosition();
-					foundEnemyCommand = true;
-					debug("Enemy command found at " + SSTR(enemyCommandPosition.x()) + " " + SSTR(enemyCommandPosition.y()) + "\n");
-				}
-
-				return true;
-			}
-
-		}
-
-		return false;
-	}
-}
-
 char nextSector (Unidade* u){
 	/*
 		Retorna para qual setor o scout deve ir.
@@ -356,8 +231,8 @@ char nextSector (Unidade* u){
 		if(currentSector == 'A') next = 'B';
 		if(currentSector == 'B') next = 'C';
 		if(currentSector == 'C') next = 'M';
-		if(currentSector == 'K') next = 'L';
-		if(currentSector == 'L') next = 'A';
+		if(currentSector == 'K') next = 'A';
+		if(currentSector == 'L') next = 'B';
 		if(currentSector == 'M') next = 'Z';
 		if(currentSector == 'X') next = 'K';
 		if(currentSector == 'Y') next = 'X';
@@ -368,7 +243,7 @@ char nextSector (Unidade* u){
 		nextSectorReachTryAmount = 0;
 	}
 
- 	/*dbgmsg = "Next sector ";
+ 	dbgmsg = "Next sector ";
 	dbgmsg = dbgmsg + " is '";
 	dbgmsg = dbgmsg + next;
 	dbgmsg = dbgmsg + "' with goalRadius: ";
@@ -379,66 +254,11 @@ char nextSector (Unidade* u){
 	dbgmsg = dbgmsg + SSTR(maxAmountTryReachGoalRadius); 
 
 	debug(dbgmsg + "\n");
-*/
+
 	return next;
 }
 
-BWAPI::Position nextSpiralPosition (Unidade* u, BWAPI::Position center){
-	/*
-		Faz o batedor andar em expiral, em torno da primeira unidade encontrada.
-
-		Para cada volta, divide a circunferencia em quatro setores que serao para onde
-		o batedor ira se mover. Se no final de uma volta, nao encontrar o centro de comando
-		inicia mais uma volta porem dessa vez, com o raio maior em spiralRadiusDelta
-	*/
-
-	int spiralRadius = (spiralTurn*spiralRadiusDelta);
-
-	if(distance(u->getPosition(), nextSpiralSectorPosition) > spiralGoalRadius){
-		if(distance(u->getPosition(), nextSpiralSectorPosition) >= lastDistanceToNextSpiralSector){
-			nextSpiralSectorReachTryAmount = nextSpiralSectorReachTryAmount + 1;
-		}
-
-		if(nextSpiralSectorReachTryAmount >= maxAmountTryReachSpiralGoalRadius){
-			spiralSector = spiralSector + 1;
-			nextSpiralSectorReachTryAmount = 0;
-		}
-	}else{
-		nextSpiralSectorReachTryAmount = 0;
-		spiralSector = spiralSector + 1;
-	}
-
-	if(spiralSector == 0){
-		nextSpiralSectorPosition = BWAPI::Position(center.x(), (center.y() - spiralRadius));
-	}else if(spiralSector == 1){
-		nextSpiralSectorPosition = BWAPI::Position((center.x() + spiralRadius), center.y());
-	}else if(spiralSector == 2){
-		nextSpiralSectorPosition = BWAPI::Position(center.x(), (center.y() + spiralRadius));
-	}else if(spiralSector == 3){
-		nextSpiralSectorPosition = BWAPI::Position((center.x() - spiralRadius), center.y());
-
-		// fim da volta. Incrementa a volta e reinicia o sector
-		spiralTurn = spiralTurn + 1;
-		spiralSector = -1;
-	}
-
-	debug("Walking in spiral. Turn: " + SSTR(spiralTurn) + " | Sector: " + SSTR(spiralSector) + " | Tries: " + SSTR(nextSpiralSectorReachTryAmount) + "\n");
-
-	return nextSpiralSectorPosition;
-}
-
-void scoutVision (Unidade* u){
-	double now = std::clock() / (double) CLOCKS_PER_SEC;
-
-	if(now > nextEnemyCheck){
-		if(seesEnemyStructure(u)){
-			seesEnemyCommand(u);
-		}
-
-		nextEnemyCheck = now + enemyCheckInterval;
-	}
-}
-
+ 
 void AIBatedor (Unidade* u){
 
     /*
@@ -447,17 +267,8 @@ void AIBatedor (Unidade* u){
 		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
     */
 
-	if(foundFirstEnemyStructure){
-
-		if(foundEnemyCommand){
-			u->move(nextSpiralPosition(u, enemyCommandPosition));
-		}else{
-			u->move(nextSpiralPosition(u, firstEnemyStructureFoundPosition));
-		}
-
-	}else{
-		u->rightClick(getSectorCenter(nextSector(u)));
-	}
+	u->rightClick(getSectorCenter(nextSector(u)));
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
@@ -492,15 +303,16 @@ DWORD WINAPI threadAgente(LPVOID param){
 			Sleep(10);
 			continue;
 		}
-
-		if(u == scout) {
-			scoutVision(u);
-		};
-
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
-			if(u == scout) AIBatedor(u);
+<<<<<<< HEAD
+			if(u == batedor){AIBatedor(u);}
 			else if(u->getType().isWorker() && u!=Selected_Worker){AITrabalhador(u);}
+=======
+			if(u == amigoDaVez) AIConstrutora(u);
+			else if(u == scout) AIBatedor(u);
+			else if(u->getType().isWorker()) AITrabalhador(u);
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
 		}
 		//
@@ -572,7 +384,7 @@ void updateWorkers(){
 	int cont = 0;
 	std::set<Unidade*> unidades= Protoss_Nexus->getAllyUnits();
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++)
-	{
+	{3
 		if ((*it)->getType().isWorker())
 		{
 			Protoss_Workers [cont] = (*it);
@@ -580,6 +392,18 @@ void updateWorkers(){
 		}
 	}
 	numWorkers = cont;
+}
+
+Position getBuildPos(BWAPI::Position target){
+	//////////////////////////////////////////////////////////
+	// Se a posicao atual estiver ocupada, passa para a proxima
+	////////////////////////////////////////////////////////////
+	BWAPI::Position received = target;
+	
+	while(!target.isValid()){
+		printf("Bad position");
+	}
+	return received;
 }
 
 void buildPylon(){
@@ -778,16 +602,17 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	BWAPI::UnitType tipo = unidade->getType();
 	
 	if(tipo == BWAPI::UnitTypes::Protoss_Nexus){
-		
 		Protoss_Nexus = unidade;
+<<<<<<< HEAD
+=======
 		base = Protoss_Nexus->getPosition();
 		int halfWidth = (AgentePrincipal::mapWidth()*16);
 		int halfHeight = (AgentePrincipal::mapHeight()*16);
 		centro = BWAPI::Position(halfWidth, halfHeight);
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
-
 	}
 	else if(tipo == BWAPI::UnitTypes::Protoss_Gateway){
 		Protoss_Gateways[numGateways] = unidade;
@@ -798,10 +623,6 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
-		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
-			hasScout = true;
-			scout = unidade;
-		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
 	}
 }
