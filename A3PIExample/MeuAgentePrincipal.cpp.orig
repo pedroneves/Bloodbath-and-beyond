@@ -3,12 +3,16 @@
 #include <Windows.h>
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
+<<<<<<< HEAD
+#include <math.h> 
+using namespace BWAPI;
+=======
 #include <stdio.h>
 #include <math.h>
-using namespace BWAPI;
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
+
  
 //blackboard!
-BWAPI::Position centro;
 BWAPI::Position base;
 BWAPI::Position base_inimiga;
 
@@ -17,16 +21,9 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
-// Scout vars
-Unidade* scout;
-char currentDestSector;
-bool isInLoop = false;
-int goalRadius = 50;
-double lastDistanceToNextSector = 100000;
-int nextSectorReachTryAmount = 0;
-int maxAmountTryReachGoalRadius = 5;
+<<<<<<< HEAD
+Unidade* batedor;
 
-// END SCOUT VARS
 
 //RECURSOS//
 Unidade* Protoss_Gateways [10];
@@ -40,11 +37,26 @@ bool resourceSemaphore;
 bool pylonBuildingSemaphore;
 
 
+=======
+// Scout vars
+Unidade* scout;
+char currentDestSector;
+bool isInLoop = false;
+int goalRadius = 50;
+double lastDistanceToNextSector = 100000;
+int nextSectorReachTryAmount = 0;
+int maxAmountTryReachGoalRadius = 5;
+
+// END SCOUT VARS
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 
 bool GameOver = false;
-bool hasScout = false;
 
 //
+
+<<<<<<< HEAD
+//Modificado.
+=======
 std::wstring s2ws(const std::string& s){
     int len;
     int slength = (int)s.length() + 1;
@@ -61,6 +73,7 @@ void debug (std::string s){
 	OutputDebugString(stemp.c_str());
 }
 
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 void AITrabalhador (Unidade* u){
 	double distance = 99999;
 	Unidade* mineralPerto = NULL;
@@ -82,6 +95,16 @@ char getSector (BWAPI::Position p){
 	/*
 		Dividindo o mapa em 9 setores:
 
+<<<<<<< HEAD
+	int heig = AgentePrincipal::mapHeight();
+    int wid = AgentePrincipal::mapWidth();
+	if(AgentePrincipal::isWalkable(wid, heig)){
+	
+		u->move(BWAPI::Position(wid,heig));
+	
+	}
+	
+=======
 			   (C1)   (C2)
 			  A  |  B  |  C  
 			----------------- (L1)
@@ -220,7 +243,7 @@ char nextSector (Unidade* u){
 		nextSectorReachTryAmount = 0;
 	}
 
- 	/*dbgmsg = "Next sector ";
+ 	dbgmsg = "Next sector ";
 	dbgmsg = dbgmsg + " is '";
 	dbgmsg = dbgmsg + next;
 	dbgmsg = dbgmsg + "' with goalRadius: ";
@@ -231,7 +254,7 @@ char nextSector (Unidade* u){
 	dbgmsg = dbgmsg + SSTR(maxAmountTryReachGoalRadius); 
 
 	debug(dbgmsg + "\n");
-*/
+
 	return next;
 }
 
@@ -245,6 +268,7 @@ void AIBatedor (Unidade* u){
     */
 
 	u->rightClick(getSectorCenter(nextSector(u)));
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
@@ -281,8 +305,14 @@ DWORD WINAPI threadAgente(LPVOID param){
 		}
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
-			if(u == scout) AIBatedor(u);
+<<<<<<< HEAD
+			if(u == batedor){AIBatedor(u);}
 			else if(u->getType().isWorker() && u!=Selected_Worker){AITrabalhador(u);}
+=======
+			if(u == amigoDaVez) AIConstrutora(u);
+			else if(u == scout) AIBatedor(u);
+			else if(u->getType().isWorker()) AITrabalhador(u);
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
 		}
 		//
@@ -354,7 +384,7 @@ void updateWorkers(){
 	int cont = 0;
 	std::set<Unidade*> unidades= Protoss_Nexus->getAllyUnits();
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++)
-	{
+	{3
 		if ((*it)->getType().isWorker())
 		{
 			Protoss_Workers [cont] = (*it);
@@ -362,6 +392,18 @@ void updateWorkers(){
 		}
 	}
 	numWorkers = cont;
+}
+
+Position getBuildPos(BWAPI::Position target){
+	//////////////////////////////////////////////////////////
+	// Se a posicao atual estiver ocupada, passa para a proxima
+	////////////////////////////////////////////////////////////
+	BWAPI::Position received = target;
+	
+	while(!target.isValid()){
+		printf("Bad position");
+	}
+	return received;
 }
 
 void buildPylon(){
@@ -560,16 +602,17 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	BWAPI::UnitType tipo = unidade->getType();
 	
 	if(tipo == BWAPI::UnitTypes::Protoss_Nexus){
-		
 		Protoss_Nexus = unidade;
+<<<<<<< HEAD
+=======
 		base = Protoss_Nexus->getPosition();
 		int halfWidth = (AgentePrincipal::mapWidth()*16);
 		int halfHeight = (AgentePrincipal::mapHeight()*16);
 		centro = BWAPI::Position(halfWidth, halfHeight);
+>>>>>>> 60d5e4eefc899a77f24143995b1cd67299cc3206
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
-
 	}
 	else if(tipo == BWAPI::UnitTypes::Protoss_Gateway){
 		Protoss_Gateways[numGateways] = unidade;
@@ -580,10 +623,6 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
-		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
-			hasScout = true;
-			scout = unidade;
-		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
 	}
 }
