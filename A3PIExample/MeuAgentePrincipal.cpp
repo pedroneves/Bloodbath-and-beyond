@@ -3,10 +3,12 @@
 #include <Windows.h>
 #include <BWAPI\Position.h>
 #include <BWAPI\UnitType.h>
-#include <math.h> 
-using namespace BWAPI;
+#include <stdio.h>
+#include <math.h>
 
+ 
 //blackboard!
+BWAPI::Position centro;
 BWAPI::Position base;
 BWAPI::Position base_inimiga;
 
@@ -15,8 +17,16 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
-Unidade* batedor;
+// Scout vars
+Unidade* scout;
+char currentDestSector;
+bool isInLoop = false;
+int goalRadius = 50;
+double lastDistanceToNextSector = 100000;
+int nextSectorReachTryAmount = 0;
+int maxAmountTryReachGoalRadius = 5;
 
+// END SCOUT VARS
 
 //RECURSOS//
 Unidade* Protoss_Gateways [10];
@@ -32,10 +42,25 @@ bool pylonBuildingSemaphore;
 
 
 bool GameOver = false;
+bool hasScout = false;
 
 //
+std::wstring s2ws(const std::string& s){
+    int len;
+    int slength = (int)s.length() + 1;
+    len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0); 
+    wchar_t* buf = new wchar_t[len];
+    MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
+    std::wstring r(buf);
+    delete[] buf;
+    return r;
+}
 
-//Modificado.
+void debug (std::string s){
+	std::wstring stemp = s2ws(s);
+	OutputDebugString(stemp.c_str());
+}
+
 void AITrabalhador (Unidade* u){
 	double distance = 99999;
 	Unidade* mineralPerto = NULL;
@@ -53,16 +78,173 @@ void AITrabalhador (Unidade* u){
 }
 //Modificado
 
+char getSector (BWAPI::Position p){
+	/*
+		Dividindo o mapa em 9 setores:
+
+			   (C1)   (C2)
+			  A  |  B  |  C  
+			----------------- (L1)
+			  K  |  L  |  M  
+			----------------- (L2)
+			  X  |  Y  |  Z  
+
+		A funcao recebe uma posicao e retorna em qual setor estah
+	*/
+
+	int width = centro.x()*2;
+	int height = centro.y()*2;
+
+	double C1 = width / 3;
+	double C2 = (2*width) / 3;
+
+	double L1 = height / 3;
+	double L2 = (2*height) / 3;
+
+	if(p.x() < C1 && p.y() < L1) return 'A';
+	if(p.x() > C1 && p.x() < C2 && p.y() < L1) return 'B';
+	if(p.x() > C2 && p.y() < L1) return 'C';
+
+	if(p.x() < C1 && p.y() > L1 && p.y() < L2) return 'K';
+	if(p.x() > C1 && p.x() < C2 && p.y() > L1 && p.y() < L2) return 'L';
+	if(p.x() > C2 && p.y() > L1 && p.y() < L2) return 'M';
+
+	if(p.x() < C1 && p.y() > L2) return 'X';
+	if(p.x() > C1 && p.x() < C2 && p.y() > L2) return 'Y';
+	if(p.x() > C2 && p.y() > L2) return 'Z';
+}
+
+char getOppositeSector (char s){
+	if(s == 'A') return 'Z';
+	if(s == 'B') return 'Y';
+	if(s == 'C') return 'X';
+	if(s == 'K') return 'M';
+	if(s == 'L') return 'L';
+	if(s == 'M') return 'K';
+	if(s == 'X') return 'C';
+	if(s == 'Y') return 'B';
+	if(s == 'Z') return 'A';
+}
+
+BWAPI::Position getSectorCenter (char s){
+
+	/*
+		Dividindo o mapa em 9 setores:
+
+			   (C1)   (C2)
+			  A  |  B  |  C  
+			----------------- (L1)
+			  K  |  L  |  M  
+			----------------- (L2)
+			  X  |  Y  |  Z  
+
+		A funcao recebe um setor e retorna o ponto central do setor
+	*/
+
+	int width = centro.x()*2;
+	int height = centro.y()*2;
+
+	double C1 = width / 3;
+	double C2 = (2*width) / 3;
+
+	double L1 = height / 3;
+	double L2 = (2*height) / 3;
+
+	double halfSectorWidth = (C1 / 2);
+	double halfSectorHeight = (L1 / 2);
+
+	if(s == 'A') return BWAPI::Position((int) halfSectorWidth, (int) halfSectorHeight);
+	if(s == 'B') return BWAPI::Position((int) (C1 + halfSectorWidth), (int) halfSectorHeight);
+	if(s == 'C') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) halfSectorHeight);
+	if(s == 'K') return BWAPI::Position((int) halfSectorWidth, (int) (L1 + halfSectorHeight));
+	if(s == 'L') return BWAPI::Position((int) (C1 + halfSectorWidth), (int) (L1 + halfSectorHeight));
+	if(s == 'M') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) (L1 + halfSectorHeight));
+	if(s == 'X') return BWAPI::Position((int) halfSectorWidth, (int) (L2 + halfSectorHeight));
+	if(s == 'Y') return BWAPI::Position((int) (C1 + halfSectorWidth), (int) (L2 + halfSectorHeight));
+	if(s == 'Z') return BWAPI::Position((int) (C2 + halfSectorWidth), (int) (L2 + halfSectorHeight));
+}
+
+int distance (BWAPI::Position p1, BWAPI::Position p2){
+	return (int) sqrt(pow((double)(p1.x() - p2.x()), 2) + pow((double)(p1.y() - p2.y()), 2));
+}
+
+char nextSector (Unidade* u){
+	/*
+		Retorna para qual setor o scout deve ir.
+		A partir do setor atual, segue em um sentido horario.
+
+		Considera-se que o scout atingiu o setor, quando ele estiver
+		dentro de um raio de tolerancia do destino, definido por
+		goalRadius
+	*/
+ 
+ 	std::string dbgmsg;
+
+	char currentSector = getSector((u->getPosition()));
+	char next = currentSector;
+	BWAPI::Position currentSectorCenter = getSectorCenter(currentSector);
+	lastDistanceToNextSector = distance(u->getPosition(), currentSectorCenter);
+
+	if(distance(u->getPosition(), currentSectorCenter) > goalRadius){
+		next = currentSector;
+
+		/*
+			Verifica se a regiao de tolerancia (goalRadius) eh alcancavel. Tenta alcanca-la por 
+			<maxAmountTryReachGoalRadius> se notar em algum momento que que a distancia nao diminui
+			acrescenta uma tentativa.
+
+			Se estourar as possibilidades aumenta o goalRadius. O goalRadius aumenta ateh atingir o
+			batedor nesse caso ele passa para o proximo setor;
+		*/
+		if(distance(u->getPosition(), currentSectorCenter) >= lastDistanceToNextSector){
+			nextSectorReachTryAmount = nextSectorReachTryAmount + 1;
+		}
+
+		if(nextSectorReachTryAmount >= maxAmountTryReachGoalRadius){
+			goalRadius = goalRadius + 50;
+			nextSectorReachTryAmount = 0;
+		}
+	}else{
+		if(currentSector == 'A') next = 'B';
+		if(currentSector == 'B') next = 'C';
+		if(currentSector == 'C') next = 'M';
+		if(currentSector == 'K') next = 'A';
+		if(currentSector == 'L') next = 'B';
+		if(currentSector == 'M') next = 'Z';
+		if(currentSector == 'X') next = 'K';
+		if(currentSector == 'Y') next = 'X';
+		if(currentSector == 'Z') next = 'Y';
+
+		// reseta os parametros
+		goalRadius = 50;
+		nextSectorReachTryAmount = 0;
+	}
+
+ 	dbgmsg = "Next sector ";
+	dbgmsg = dbgmsg + " is '";
+	dbgmsg = dbgmsg + next;
+	dbgmsg = dbgmsg + "' with goalRadius: ";
+	dbgmsg = dbgmsg + SSTR(goalRadius);
+	dbgmsg = dbgmsg + " | Try: ";
+	dbgmsg = dbgmsg + SSTR(nextSectorReachTryAmount);
+	dbgmsg = dbgmsg + " | Max: ";
+	dbgmsg = dbgmsg + SSTR(maxAmountTryReachGoalRadius); 
+
+	debug(dbgmsg + "\n");
+
+	return next;
+}
+
+ 
 void AIBatedor (Unidade* u){
 
-	int heig = AgentePrincipal::mapHeight();
-    int wid = AgentePrincipal::mapWidth();
-	if(AgentePrincipal::isWalkable(wid, heig)){
-	
-		u->move(BWAPI::Position(wid,heig));
-	
-	}
-	
+    /*
+		A primeira etapa do para o scout seria dividir o mapa em quadrantes.
+
+		Geralmente, os combates em SC, os jogadores inimigos se localizam em quadrantes opostos
+    */
+
+	u->rightClick(getSectorCenter(nextSector(u)));
 }
 
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
@@ -77,7 +259,9 @@ Unidade* AIGuerreiro (Unidade* caboSoldado[]){
 	return cabo;
 }
 
+
 DWORD WINAPI threadAgente(LPVOID param){
+	
 	
 	Unidade* u = (Unidade*) param;
 	Unidade *caboSoldado[2] = {NULL,u}; //caso seja soldado
@@ -97,7 +281,7 @@ DWORD WINAPI threadAgente(LPVOID param){
 		}
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
-			if(u == batedor){AIBatedor(u);}
+			else if(u == scout) AIBatedor(u);
 			else if(u->getType().isWorker() && u!=Selected_Worker){AITrabalhador(u);}
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
 		}
@@ -383,14 +567,21 @@ void MeuAgentePrincipal::onEnd(bool isWinner){
 }
 
 void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
+
 	//Uma nova unidade sua foi criada (isto inclui as do inicio da partida). Implemente aqui como quer tratar ela.
 	BWAPI::UnitType tipo = unidade->getType();
 	
 	if(tipo == BWAPI::UnitTypes::Protoss_Nexus){
+		
 		Protoss_Nexus = unidade;
+		base = Protoss_Nexus->getPosition();
+		int halfWidth = (AgentePrincipal::mapWidth()*16);
+		int halfHeight = (AgentePrincipal::mapHeight()*16);
+		centro = BWAPI::Position(halfWidth, halfHeight);
 		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
+
 	}
 	else if(tipo == BWAPI::UnitTypes::Protoss_Gateway){
 		Protoss_Gateways[numGateways] = unidade;
@@ -401,6 +592,10 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
+		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
+			hasScout = true;
+			scout = unidade;
+		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
 	}
 }
