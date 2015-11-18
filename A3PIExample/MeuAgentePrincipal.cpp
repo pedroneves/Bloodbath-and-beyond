@@ -21,34 +21,63 @@ Unidade* Protoss_Gateway;
 
 // Scout vars
 Unidade* scout;
-char currentDestSector;
-bool isInLoop = false;
+
+
+// Informa para qual setor o scout esta indo
+char currentDestSector; 
+// Raio de tolerancia para o centro do setor
 int goalRadius = 50;
+// Em quanto o raio de tolerancia vai aumentar
 int goalRadiusDelta = 75;
+// Verificador para informar a ultima distancia conhecida para o centro do setor
 double lastDistanceToNextSector = 100000;
+// Quantidade de vezes que se tentou chegar ao centro do setor
 int nextSectorReachTryAmount = 0;
+// Quantidade maxima de vezes que se pode tentar chegar ao setor
 int maxAmountTryReachGoalRadius = 2;
 
+
+// Posicao da primeira estrutura inimiga encontrada
 BWAPI::Position firstEnemyStructureFoundPosition;
+// Flag se encontrou alguma estrutura inigmiga
 bool foundFirstEnemyStructure = false;
+// Posicao do centro de comando inimigo
 BWAPI::Position enemyCommandPosition;
+// Flag se encontrou centro de comando inigmigo
 bool foundEnemyCommand = false;
 
+
+// Em qual volta esta, quando se anda em espiral
 int spiralTurn = 1;
+// Em qual setor da espiral esta
 int spiralSector = 0;
+// O quanto o raio vai aumentar, quando se termina uma volta
 int spiralRadiusDelta = 35;
+// Raio de tolerancia para se atingir o setor da espiral
 int spiralGoalRadius = 5;
+// Posicao do proximo setor da espiral
 BWAPI::Position nextSpiralSectorPosition;
+// A ultima distancia conhecida para o proximo setor da espiral
 double lastDistanceToNextSpiralSector;
+// Quantidade de vezes que se tentou chegar ao centro do setor da espiral
 int nextSpiralSectorReachTryAmount = 0;
+// Quantidade maxima de vezes que se pode tentar chegar ao setor da espiral
 int maxAmountTryReachSpiralGoalRadius = 3;
 
+
+// Quantidade em segundos que se vai checar a visao
 double visionCheckInterval = 1;
+// Controle para saber se deve checar ou nao
 double nextVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + visionCheckInterval;
 
+
+// Primeiro worker inimigo encontrado
 Unidade* nextEnemyWorker;
+// Flag para saber se encontrou algum inimigo
 bool hasNextEnemyWorker = false;
 
+
+// Minerais encontrados enquanto procurava o inimigo
 std::set<Unidade*> mineralsFoundByScout;
 
 // END SCOUT VARS
