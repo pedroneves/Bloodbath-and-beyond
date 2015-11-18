@@ -24,9 +24,10 @@ Unidade* scout;
 char currentDestSector;
 bool isInLoop = false;
 int goalRadius = 50;
+int goalRadiusDelta = 75;
 double lastDistanceToNextSector = 100000;
 int nextSectorReachTryAmount = 0;
-int maxAmountTryReachGoalRadius = 3;
+int maxAmountTryReachGoalRadius = 2;
 
 BWAPI::Position firstEnemyStructureFoundPosition;
 bool foundFirstEnemyStructure = false;
@@ -44,6 +45,9 @@ int maxAmountTryReachSpiralGoalRadius = 3;
 
 double enemyCheckInterval = 1;
 double nextEnemyCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + enemyCheckInterval;
+
+Unidade* nextEnemyWorker;
+bool hasNextEnemyWorker = false;
 
 // END SCOUT VARS
 
@@ -187,65 +191,6 @@ int distance (BWAPI::Position p1, BWAPI::Position p2){
 	return (int) sqrt(pow((double)(p1.x() - p2.x()), 2) + pow((double)(p1.y() - p2.y()), 2));
 }
 
-bool isStructure (Unidade* u){
-	BWAPI::UnitType t = u->getType();
-
-	return
-		t == BWAPI::UnitTypes::Zerg_Infested_Command_Center ||
-		t == BWAPI::UnitTypes::Zerg_Hatchery ||
-		t == BWAPI::UnitTypes::Zerg_Lair ||
-		t == BWAPI::UnitTypes::Zerg_Hive ||
-		t == BWAPI::UnitTypes::Zerg_Nydus_Canal ||
-		t == BWAPI::UnitTypes::Zerg_Hydralisk_Den ||
-		t == BWAPI::UnitTypes::Zerg_Defiler_Mound ||
-		t == BWAPI::UnitTypes::Zerg_Greater_Spire ||
-		t == BWAPI::UnitTypes::Zerg_Queens_Nest ||
-		t == BWAPI::UnitTypes::Zerg_Evolution_Chamber ||
-		t == BWAPI::UnitTypes::Zerg_Ultralisk_Cavern ||
-		t == BWAPI::UnitTypes::Zerg_Spire ||
-		t == BWAPI::UnitTypes::Zerg_Spawning_Pool ||
-		t == BWAPI::UnitTypes::Zerg_Creep_Colony ||
-		t == BWAPI::UnitTypes::Zerg_Spore_Colony ||
-		t == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
-		t == BWAPI::UnitTypes::Zerg_Extractor ||
-		t == BWAPI::UnitTypes::Protoss_Nexus ||
-		t == BWAPI::UnitTypes::Protoss_Robotics_Facility ||
-		t == BWAPI::UnitTypes::Protoss_Pylon ||
-		t == BWAPI::UnitTypes::Protoss_Assimilator ||
-		t == BWAPI::UnitTypes::Protoss_Observatory ||
-		t == BWAPI::UnitTypes::Protoss_Gateway ||
-		t == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
-		t == BWAPI::UnitTypes::Protoss_Citadel_of_Adun ||
-		t == BWAPI::UnitTypes::Protoss_Cybernetics_Core ||
-		t == BWAPI::UnitTypes::Protoss_Templar_Archives ||
-		t == BWAPI::UnitTypes::Protoss_Forge ||
-		t == BWAPI::UnitTypes::Protoss_Stargate ||
-		t == BWAPI::UnitTypes::Protoss_Fleet_Beacon ||
-		t == BWAPI::UnitTypes::Protoss_Arbiter_Tribunal ||
-		t == BWAPI::UnitTypes::Protoss_Robotics_Support_Bay ||
-		t == BWAPI::UnitTypes::Protoss_Shield_Battery ||
-		t == BWAPI::UnitTypes::Terran_Command_Center ||
-		t == BWAPI::UnitTypes::Terran_Comsat_Station ||
-		t == BWAPI::UnitTypes::Terran_Nuclear_Silo ||
-		t == BWAPI::UnitTypes::Terran_Supply_Depot ||
-		t == BWAPI::UnitTypes::Terran_Refinery ||
-		t == BWAPI::UnitTypes::Terran_Barracks ||
-		t == BWAPI::UnitTypes::Terran_Academy ||
-		t == BWAPI::UnitTypes::Terran_Factory ||
-		t == BWAPI::UnitTypes::Terran_Starport ||
-		t == BWAPI::UnitTypes::Terran_Control_Tower ||
-		t == BWAPI::UnitTypes::Terran_Science_Facility ||
-		t == BWAPI::UnitTypes::Terran_Covert_Ops ||
-		t == BWAPI::UnitTypes::Terran_Physics_Lab ||
-		t == BWAPI::UnitTypes::Terran_Machine_Shop ||
-		t == BWAPI::UnitTypes::Terran_Engineering_Bay ||
-		t == BWAPI::UnitTypes::Terran_Armory ||
-		t == BWAPI::UnitTypes::Terran_Missile_Turret ||
-		t == BWAPI::UnitTypes::Terran_Bunker ||
-		u->isBeingConstructed();
-	;
-}
-
 bool isCommandCenter (Unidade* u){
 	BWAPI::UnitType t = u->getType();
 
@@ -268,7 +213,7 @@ bool seesEnemyStructure (Unidade* u){
 		for (it = e.begin(); it != e.end(); ++it){
 			Unidade* f = *it;
 						
-			if(u->isEnemy(f) && isStructure(f)){
+			if(u->isEnemy(f) && f->getType().isBuilding()){
 				
 				debug("I see enemy structures!\n");				
 
@@ -316,6 +261,35 @@ bool seesEnemyCommand (Unidade* u){
 	}
 }
 
+void attackFirstEnemyWorker (Unidade* u){
+
+	debug("Searching for enemy workers...");
+
+	if(hasNextEnemyWorker){
+		debug("Found! Attacking!\n");
+		u->attack(nextEnemyWorker);
+	}else{
+		std::set<Unidade*> e = u->getEnemyUnits();
+		std::set<Unidade*>::iterator it;
+
+		debug("Found something...");
+
+		if(!e.empty()){
+
+			for (it = e.begin(); it != e.end() && !hasNextEnemyWorker; ++it){
+				Unidade* f = *it;
+				
+				if(u->isEnemy(f) && f->getType().isWorker()){
+					debug("ATTACKING!!!");
+					nextEnemyWorker = f;
+					hasNextEnemyWorker = true;
+					u->attack(nextEnemyWorker);
+				}
+			}
+		}
+	}
+}
+
 char nextSector (Unidade* u){
 	/*
 		Retorna para qual setor o scout deve ir.
@@ -349,7 +323,7 @@ char nextSector (Unidade* u){
 		}
 
 		if(nextSectorReachTryAmount >= maxAmountTryReachGoalRadius){
-			goalRadius = goalRadius + 50;
+			goalRadius = goalRadius + goalRadiusDelta;
 			nextSectorReachTryAmount = 0;
 		}
 	}else{
@@ -368,7 +342,7 @@ char nextSector (Unidade* u){
 		nextSectorReachTryAmount = 0;
 	}
 
- 	/*dbgmsg = "Next sector ";
+ 	dbgmsg = "Next sector ";
 	dbgmsg = dbgmsg + " is '";
 	dbgmsg = dbgmsg + next;
 	dbgmsg = dbgmsg + "' with goalRadius: ";
@@ -379,7 +353,7 @@ char nextSector (Unidade* u){
 	dbgmsg = dbgmsg + SSTR(maxAmountTryReachGoalRadius); 
 
 	debug(dbgmsg + "\n");
-*/
+
 	return next;
 }
 
@@ -450,7 +424,12 @@ void AIBatedor (Unidade* u){
 	if(foundFirstEnemyStructure){
 
 		if(foundEnemyCommand){
-			u->move(nextSpiralPosition(u, enemyCommandPosition));
+			if(hasNextEnemyWorker){
+				attackFirstEnemyWorker(u);
+			}else{
+				attackFirstEnemyWorker(u);
+				u->move(nextSpiralPosition(u, enemyCommandPosition));
+			}
 		}else{
 			u->move(nextSpiralPosition(u, firstEnemyStructureFoundPosition));
 		}
@@ -504,7 +483,7 @@ DWORD WINAPI threadAgente(LPVOID param){
 			else {caboSoldado[0] = AIGuerreiro(caboSoldado);}
 		}
 		//
-		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread È muito mais r·pida do que um turno do bwapi.
+		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread √© muito mais r√°pida do que um turno do bwapi.
 	}
 }
 
@@ -531,7 +510,7 @@ DWORD WINAPI general_militar(LPVOID param){
 
 		
 		//Fim Codigo Genaral Militar
-		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread È muito mais r·pida do que um turno do bwapi.
+		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread √© muito mais r√°pida do que um turno do bwapi.
 	}
 }
 
@@ -713,7 +692,7 @@ DWORD WINAPI general_recursos(LPVOID param){
 		}
 		
 		//Fim Codigo Genaral recursos
-		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread È muito mais r·pida do que um turno do bwapi.
+		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread √© muito mais r√°pida do que um turno do bwapi.
 	}
 }
 //----------------------------FIM RECURSOS---------------------------//
@@ -755,7 +734,7 @@ DWORD WINAPI general(LPVOID param){
 
 		
 		//Fim Codigo Genaral
-		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread È muito mais r·pida do que um turno do bwapi.
+		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread √© muito mais r√°pida do que um turno do bwapi.
 	}
 }
 
@@ -809,7 +788,7 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 /*
 	Os outros eventos nao existem numa arquitetura orientada a Agentes Autonomos, pois eram relacionados ao Player do Broodwar
 	de maneira generica, nao sendo especificamente ligados a alguma unidade do jogador. Se desejado, seus comportamentos podem
-	ser simulados atravÈs de tÈcnicas ou estruturas de comunicaÁ„o dos agentes, como por exemplo Blackboards.
+	ser simulados atrav√©s de t√©cnicas ou estruturas de comunica√ß√£o dos agentes, como por exemplo Blackboards.
 */
 
 
