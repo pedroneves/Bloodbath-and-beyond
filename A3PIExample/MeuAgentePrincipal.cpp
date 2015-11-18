@@ -19,7 +19,7 @@ BWAPI::Position base_inimiga;
 Unidade* Protoss_Nexus;
 Unidade* Protoss_Gateway;
 
-// Scout vars
+// Scout vars ////////////////////////////////////////////////////////////////////////////////////////////////////
 Unidade* scout;
 
 
@@ -80,7 +80,16 @@ bool hasNextEnemyWorker = false;
 // Minerais encontrados enquanto procurava o inimigo
 std::set<Unidade*> mineralsFoundByScout;
 
-// END SCOUT VARS
+// END SCOUT VARS //////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Soldier vars ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int enemyCommandGoalRadius = 50;
+int zealotCount = 0;
+bool hasEnoughSoldiers = false;
+
+// END SOLDIER VARS ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RECURSOS//
 Unidade* Protoss_Gateways [10];
@@ -230,6 +239,14 @@ bool isCommandCenter (Unidade* u){
 		t == BWAPI::UnitTypes::Protoss_Nexus ||
 		t == BWAPI::UnitTypes::Terran_Command_Center
 	;
+}
+
+bool isZealot (Unidade* u){
+	return u->getType() == BWAPI::UnitTypes::Protoss_Zealot;
+}
+
+bool isSoldier (Unidade* u){
+	return (!(u->getType().isWorker()) && !(u->getType().isBuilding()));
 }
 
 bool seesEnemyStructure (Unidade* u){
@@ -540,7 +557,87 @@ DWORD WINAPI threadAgente(LPVOID param){
 	}
 }
 
+bool seekEnemyWorker(Unidade* u){
+	bool found = false;
+
+	if(foundEnemyCommand){
+
+		debug("SOLDIER: Enemy command center found... Kill workers!...\n");
+
+		if(u->getDistance(enemyCommandPosition) < 50){
+			std::set<Unidade*> e = u->getEnemyUnits();
+			std::set<Unidade*>::iterator it;
+			bool attackingWorker = false;
+
+			if(!e.empty()){
+				
+				debug("SOLDIER: Workers found!...\n");
+
+				for (it = e.begin(); it != e.end() && !attackingWorker; ++it){
+					Unidade* f = *it;
+					
+					if(u->isEnemy(f) && f->getType().isWorker()){
+						u->attack(f);
+						attackingWorker = true;
+						found = true;
+					}
+				}
+			}
+		}else{
+			u->move(enemyCommandPosition);
+		}
+	}
+
+	return found;
+}
+
+bool seekEnemyCommandCenter (Unidade* u){
+	bool found = false;
+
+	if(foundEnemyCommand){
+		found = true;
+		u->attack(enemyCommandPosition);
+	}
+
+	return found;
+}
+
+void AISoldado(Unidade* u){
+	if(hasEnoughSoldiers){
+		if(!seekEnemyWorker(u)){
+			seekEnemyCommandCenter(u);
+		}
+	}
+}
+
+void updateSoldiers(){
+	std::set<Unidade*> unidades = Protoss_Nexus->getAllyUnits();
+
+	zealotCount = 0;
+
+	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
+		if(isZealot((*it))){
+			zealotCount = zealotCount + 1;
+		}
+	}
+
+	hasEnoughSoldiers = ((zealotCount / 4) >= 1);
+
+	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
+		if(isZealot((*it))){
+			if ((*it)->isIdle()) {
+				AISoldado((*it));
+			}
+		}
+	}
+
+}
+
+
+
 DWORD WINAPI general_militar(LPVOID param){
+
+	Unidade* u = (Unidade*) param;
 
 	while(true){
 		//Se houve algum problema (ex: o jogo foi fechado) ou a unidade estah morta, finalizar a thread
@@ -553,14 +650,7 @@ DWORD WINAPI general_militar(LPVOID param){
 		//Inserir o codigo de voces a partir daqui//
 		// Codigo General Militar
 
-
-
-
-
-
-
-
-
+		updateSoldiers();
 		
 		//Fim Codigo Genaral Militar
 		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread é muito mais rápida do que um turno do bwapi.
