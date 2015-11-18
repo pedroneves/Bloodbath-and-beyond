@@ -43,11 +43,13 @@ double lastDistanceToNextSpiralSector;
 int nextSpiralSectorReachTryAmount = 0;
 int maxAmountTryReachSpiralGoalRadius = 3;
 
-double enemyCheckInterval = 1;
-double nextEnemyCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + enemyCheckInterval;
+double visionCheckInterval = 1;
+double nextVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + visionCheckInterval;
 
 Unidade* nextEnemyWorker;
 bool hasNextEnemyWorker = false;
+
+std::set<Unidade*> mineralsFoundByScout;
 
 // END SCOUT VARS
 
@@ -261,6 +263,26 @@ bool seesEnemyCommand (Unidade* u){
 	}
 }
 
+bool seesMinerals (Unidade* u){
+	std::set<Unidade*> e = u->getMinerals();
+	std::set<Unidade*>::iterator it;
+	bool found = false;
+
+	debug("Looking for minerals...");
+
+	if(!e.empty()){
+		debug("Found some! Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
+		for (it = e.begin(); it != e.end(); ++it){
+			Unidade* f = *it;
+			mineralsFoundByScout.insert(f);
+		}
+	}else{
+		debug(" Found nothing...\n");
+	}
+
+	return found;
+}
+
 void attackFirstEnemyWorker (Unidade* u){
 
 	debug("Searching for enemy workers...");
@@ -404,12 +426,14 @@ BWAPI::Position nextSpiralPosition (Unidade* u, BWAPI::Position center){
 void scoutVision (Unidade* u){
 	double now = std::clock() / (double) CLOCKS_PER_SEC;
 
-	if(now > nextEnemyCheck){
+	if(now > nextVisionCheck){
 		if(seesEnemyStructure(u)){
 			seesEnemyCommand(u);
 		}
 
-		nextEnemyCheck = now + enemyCheckInterval;
+		seesMinerals(u);
+
+		nextVisionCheck = now + visionCheckInterval;
 	}
 }
 
