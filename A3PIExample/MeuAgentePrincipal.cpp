@@ -242,7 +242,15 @@ bool isCommandCenter (Unidade* u){
 }
 
 bool isZealot (Unidade* u){
-	return u->getType() == BWAPI::UnitTypes::Protoss_Zealot;
+	if(u->getType() == BWAPI::UnitTypes::Protoss_Zealot){
+		debug("Zealot: ");
+		if(u->isTraining()){
+			debug("treinando\n");
+		}else{
+			debug("NOT treinando\n");
+		}
+	}
+	return (u->getType() == BWAPI::UnitTypes::Protoss_Zealot && !u->isTraining());
 }
 
 bool isSoldier (Unidade* u){
@@ -254,7 +262,6 @@ bool seesEnemyStructure (Unidade* u){
 	std::set<Unidade*>::iterator it;
 
 	if(e.empty()){
-		debug("I see no enemy units\n");
 		return false;	
 	}else{
 
@@ -263,20 +270,15 @@ bool seesEnemyStructure (Unidade* u){
 						
 			if(u->isEnemy(f) && f->getType().isBuilding()){
 				
-				debug("I see enemy structures!\n");				
-
 				if(!foundFirstEnemyStructure){
 					u->stop();
 					firstEnemyStructureFoundPosition = f->getPosition();
 					foundFirstEnemyStructure = true;
-					debug("First Enemy structure found at " + SSTR(firstEnemyStructureFoundPosition.x()) + " " + SSTR(firstEnemyStructureFoundPosition.y()) + "\n");
 				}
 
 				return true;
 			}
 		}
-
-		debug("\nNah...No structures, just units =/\n");
 
 		return false;
 	}
@@ -297,7 +299,6 @@ bool seesEnemyCommand (Unidade* u){
 				if(!foundEnemyCommand){
 					enemyCommandPosition = f->getPosition();
 					foundEnemyCommand = true;
-					debug("Enemy command found at " + SSTR(enemyCommandPosition.x()) + " " + SSTR(enemyCommandPosition.y()) + "\n");
 				}
 
 				return true;
@@ -314,47 +315,40 @@ bool seesMinerals (Unidade* u){
 	std::set<Unidade*>::iterator it;
 	bool found = false;
 
-	debug("Looking for minerals...");
-
 	if(!e.empty()){
-		debug("Found some! Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
 		for (it = e.begin(); it != e.end(); ++it){
 			Unidade* f = *it;
 			mineralsFoundByScout.insert(f);
 		}
-	}else{
-		debug(" Found nothing...\n");
+	}
+
+	return found;
+}
+
+bool seesEnemyWorker (Unidade* u){
+	bool found = false;
+	std::set<Unidade*> e = u->getEnemyUnits();
+	std::set<Unidade*>::iterator it;
+	Unidade* f;
+
+	if(!e.empty()){
+		for (it = e.begin(); it != e.end() && !found; ++it){
+			f = *it;
+
+			if(u->isEnemy(f) && f->getType().isWorker()){
+				nextEnemyWorker = f;
+				hasNextEnemyWorker = true;
+				found = true;
+			}
+		}
 	}
 
 	return found;
 }
 
 void attackFirstEnemyWorker (Unidade* u){
-
-	debug("Searching for enemy workers...");
-
-	if(hasNextEnemyWorker){
-		debug("Found! Attacking!\n");
+	if(nextEnemyWorker){
 		u->attack(nextEnemyWorker);
-	}else{
-		std::set<Unidade*> e = u->getEnemyUnits();
-		std::set<Unidade*>::iterator it;
-
-		debug("Found something...");
-
-		if(!e.empty()){
-
-			for (it = e.begin(); it != e.end() && !hasNextEnemyWorker; ++it){
-				Unidade* f = *it;
-				
-				if(u->isEnemy(f) && f->getType().isWorker()){
-					debug("ATTACKING!!!");
-					nextEnemyWorker = f;
-					hasNextEnemyWorker = true;
-					u->attack(nextEnemyWorker);
-				}
-			}
-		}
 	}
 }
 
@@ -410,18 +404,6 @@ char nextSector (Unidade* u){
 		nextSectorReachTryAmount = 0;
 	}
 
- 	dbgmsg = "Next sector ";
-	dbgmsg = dbgmsg + " is '";
-	dbgmsg = dbgmsg + next;
-	dbgmsg = dbgmsg + "' with goalRadius: ";
-	dbgmsg = dbgmsg + SSTR(goalRadius);
-	dbgmsg = dbgmsg + " | Try: ";
-	dbgmsg = dbgmsg + SSTR(nextSectorReachTryAmount);
-	dbgmsg = dbgmsg + " | Max: ";
-	dbgmsg = dbgmsg + SSTR(maxAmountTryReachGoalRadius); 
-
-	debug(dbgmsg + "\n");
-
 	return next;
 }
 
@@ -464,8 +446,6 @@ BWAPI::Position nextSpiralPosition (Unidade* u, BWAPI::Position center){
 		spiralSector = -1;
 	}
 
-	debug("Walking in spiral. Turn: " + SSTR(spiralTurn) + " | Sector: " + SSTR(spiralSector) + " | Tries: " + SSTR(nextSpiralSectorReachTryAmount) + "\n");
-
 	return nextSpiralSectorPosition;
 }
 
@@ -494,10 +474,9 @@ void AIBatedor (Unidade* u){
 	if(foundFirstEnemyStructure){
 
 		if(foundEnemyCommand){
-			if(hasNextEnemyWorker){
+			if(seesEnemyWorker(u)){
 				attackFirstEnemyWorker(u);
 			}else{
-				attackFirstEnemyWorker(u);
 				u->move(nextSpiralPosition(u, enemyCommandPosition));
 			}
 		}else{
@@ -612,11 +591,12 @@ void AISoldado(Unidade* u){
 
 void updateSoldiers(){
 	std::set<Unidade*> unidades = Protoss_Nexus->getAllyUnits();
-
+	Unidade* f;
 	zealotCount = 0;
 
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
-		if(isZealot((*it))){
+		f = *it;
+		if(isZealot(f)){
 			zealotCount = zealotCount + 1;
 		}
 	}
@@ -624,9 +604,10 @@ void updateSoldiers(){
 	hasEnoughSoldiers = ((zealotCount / 4) >= 1);
 
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
-		if(isZealot((*it))){
-			if ((*it)->isIdle()) {
-				AISoldado((*it));
+		f = *it;
+		if(isZealot(f)){
+			if (f->isIdle()) {
+				AISoldado(f);
 			}
 		}
 	}
