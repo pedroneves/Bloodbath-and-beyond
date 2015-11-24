@@ -89,6 +89,12 @@ int enemyCommandGoalRadius = 50;
 int zealotCount = 0;
 bool hasEnoughSoldiers = false;
 
+// Quantidade em segundos que se vai checar a visao
+double soldierVisionCheckInterval = 1;
+// Controle para saber se deve checar ou nao
+double nextSoldierVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + soldierVisionCheckInterval;
+int zealotCountVision = 0;
+
 // END SOLDIER VARS ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RECURSOS//
@@ -242,15 +248,7 @@ bool isCommandCenter (Unidade* u){
 }
 
 bool isZealot (Unidade* u){
-	if(u->getType() == BWAPI::UnitTypes::Protoss_Zealot){
-		debug("Zealot: ");
-		if(u->isTraining()){
-			debug("treinando\n");
-		}else{
-			debug("NOT treinando\n");
-		}
-	}
-	return (u->getType() == BWAPI::UnitTypes::Protoss_Zealot && !u->isTraining());
+	return (u->getType() == BWAPI::UnitTypes::Protoss_Zealot && u->isCompleted());
 }
 
 bool isSoldier (Unidade* u){
@@ -459,7 +457,12 @@ void scoutVision (Unidade* u){
 
 		seesMinerals(u);
 
-		nextVisionCheck = now + visionCheckInterval;
+		zealotCountVision = zealotCountVision + 1;
+
+		if(zealotCountVision >= zealotCount){
+			zealotCountVision = 0;
+			nextVisionCheck = now + visionCheckInterval;
+		}
 	}
 }
 
@@ -536,12 +539,12 @@ DWORD WINAPI threadAgente(LPVOID param){
 	}
 }
 
+
+
 bool seekEnemyWorker(Unidade* u){
 	bool found = false;
 
 	if(foundEnemyCommand){
-
-		debug("SOLDIER: Enemy command center found... Kill workers!...\n");
 
 		if(u->getDistance(enemyCommandPosition) < 50){
 			std::set<Unidade*> e = u->getEnemyUnits();
@@ -550,8 +553,6 @@ bool seekEnemyWorker(Unidade* u){
 
 			if(!e.empty()){
 				
-				debug("SOLDIER: Workers found!...\n");
-
 				for (it = e.begin(); it != e.end() && !attackingWorker; ++it){
 					Unidade* f = *it;
 					
@@ -581,11 +582,22 @@ bool seekEnemyCommandCenter (Unidade* u){
 	return found;
 }
 
-void AISoldado(Unidade* u){
-	if(hasEnoughSoldiers){
+void soldierVision (Unidade* u){
+	double now = std::clock() / (double) CLOCKS_PER_SEC;
+
+	if(now > nextSoldierVisionCheck){
+
 		if(!seekEnemyWorker(u)){
-			seekEnemyCommandCenter(u);
+			if(!seekEnemyCommandCenter(u)){
+				debug("kill structs...\n");
+			}else{
+				debug("kill command center...\n");
+			}
+		}else{
+			debug("kill workers...\n");
 		}
+
+		nextSoldierVisionCheck = now + soldierVisionCheckInterval;
 	}
 }
 
@@ -603,18 +615,15 @@ void updateSoldiers(){
 
 	hasEnoughSoldiers = ((zealotCount / 4) >= 1);
 
-	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
-		f = *it;
-		if(isZealot(f)){
-			if (f->isIdle()) {
-				AISoldado(f);
+	if(hasEnoughSoldiers){
+		for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
+			f = *it;
+			if(isZealot(f)){
+				soldierVision(f);
 			}
 		}
 	}
-
 }
-
-
 
 DWORD WINAPI general_militar(LPVOID param){
 
