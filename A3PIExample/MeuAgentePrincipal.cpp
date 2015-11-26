@@ -66,9 +66,9 @@ int maxAmountTryReachSpiralGoalRadius = 3;
 
 
 // Quantidade em segundos que se vai checar a visao
-double visionCheckInterval = 1;
+double scoutVisionCheckInterval = 1;
 // Controle para saber se deve checar ou nao
-double nextVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + visionCheckInterval;
+double nextScoutVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + scoutVisionCheckInterval;
 
 
 // Primeiro worker inimigo encontrado
@@ -112,6 +112,10 @@ bool pylonBuildingSemaphore;
 
 bool GameOver = false;
 bool hasScout = false;
+
+double now () {
+	return (std::clock() / (double) CLOCKS_PER_SEC);
+}
 
 //
 std::wstring s2ws(const std::string& s){
@@ -255,57 +259,36 @@ bool isSoldier (Unidade* u){
 	return (!(u->getType().isWorker()) && !(u->getType().isBuilding()));
 }
 
-bool seesEnemyStructure (Unidade* u){
+Unidade* seesEnemyStructure (Unidade* u){
+	Unidade* retorno;
 	std::set<Unidade*> e = u->getEnemyUnits();
 	std::set<Unidade*>::iterator it;
 
-	if(e.empty()){
-		return false;	
-	}else{
-
+	if(!e.empty()){
 		for (it = e.begin(); it != e.end(); ++it){
-			Unidade* f = *it;
-						
-			if(u->isEnemy(f) && f->getType().isBuilding()){
-				
-				if(!foundFirstEnemyStructure){
-					u->stop();
-					firstEnemyStructureFoundPosition = f->getPosition();
-					foundFirstEnemyStructure = true;
-				}
-
-				return true;
+			if(u->isEnemy((*it)) && (*it)->getType().isBuilding()){
+				retorno = *it;
 			}
 		}
-
-		return false;
 	}
+
+	return retorno;
 }
 
-bool seesEnemyCommand (Unidade* u){
+Unidade* seesEnemyCommand (Unidade* u){
+	Unidade* retorno;
 	std::set<Unidade*> e = u->getEnemyUnits();
 	std::set<Unidade*>::iterator it;
 
-	if(e.empty()){
-		return false;	
-	}else{
-
+	if(!e.empty()){
 		for (it = e.begin(); it != e.end(); ++it){
-			Unidade* f = *it;
-			
-			if(u->isEnemy(f) && isCommandCenter(f)){
-				if(!foundEnemyCommand){
-					enemyCommandPosition = f->getPosition();
-					foundEnemyCommand = true;
-				}
-
-				return true;
+			if(u->isEnemy((*it)) && isCommandCenter((*it))){
+				retorno = *it;
 			}
-
 		}
-
-		return false;
 	}
+
+	return retorno;
 }
 
 bool seesMinerals (Unidade* u){
@@ -323,25 +306,20 @@ bool seesMinerals (Unidade* u){
 	return found;
 }
 
-bool seesEnemyWorker (Unidade* u){
-	bool found = false;
+Unidade* seesEnemyWorker (Unidade* u){
+	Unidade* retorno;
 	std::set<Unidade*> e = u->getEnemyUnits();
 	std::set<Unidade*>::iterator it;
-	Unidade* f;
 
 	if(!e.empty()){
-		for (it = e.begin(); it != e.end() && !found; ++it){
-			f = *it;
-
-			if(u->isEnemy(f) && f->getType().isWorker()){
-				nextEnemyWorker = f;
-				hasNextEnemyWorker = true;
-				found = true;
+		for (it = e.begin(); it != e.end(); ++it){
+			if(u->isEnemy((*it)) && (*it)->getType().isWorker()){
+				retorno = *it;
 			}
 		}
 	}
 
-	return found;
+	return retorno;
 }
 
 void attackFirstEnemyWorker (Unidade* u){
@@ -448,21 +426,31 @@ BWAPI::Position nextSpiralPosition (Unidade* u, BWAPI::Position center){
 }
 
 void scoutVision (Unidade* u){
-	double now = std::clock() / (double) CLOCKS_PER_SEC;
 
-	if(now > nextVisionCheck){
+	Unidade* enemyCommand;
+	Unidade* enemyStructure;
+
+	if(now() > nextScoutVisionCheck){
+		
 		if(seesEnemyStructure(u)){
-			seesEnemyCommand(u);
+			if(!foundFirstEnemyStructure){
+				foundFirstEnemyStructure = true;
+				enemyStructure = seesEnemyStructure(u);
+				firstEnemyStructureFoundPosition = enemyStructure->getPosition();
+			}
+
+			if(seesEnemyCommand(u)){
+				if(!foundEnemyCommand){
+					foundEnemyCommand = true;
+					enemyCommand = seesEnemyCommand(u);
+					enemyCommandPosition = enemyCommand->getPosition();
+				}
+			}
 		}
 
 		seesMinerals(u);
 
-		zealotCountVision = zealotCountVision + 1;
-
-		if(zealotCountVision >= zealotCount){
-			zealotCountVision = 0;
-			nextVisionCheck = now + visionCheckInterval;
-		}
+		nextScoutVisionCheck = now() + scoutVisionCheckInterval;
 	}
 }
 
@@ -478,7 +466,7 @@ void AIBatedor (Unidade* u){
 
 		if(foundEnemyCommand){
 			if(seesEnemyWorker(u)){
-				attackFirstEnemyWorker(u);
+				u->attack(seesEnemyWorker(u));
 			}else{
 				u->move(nextSpiralPosition(u, enemyCommandPosition));
 			}
@@ -583,9 +571,7 @@ bool seekEnemyCommandCenter (Unidade* u){
 }
 
 void soldierVision (Unidade* u){
-	double now = std::clock() / (double) CLOCKS_PER_SEC;
-
-	if(now > nextSoldierVisionCheck){
+	if(now() > nextSoldierVisionCheck){
 
 		if(!seekEnemyWorker(u)){
 			if(!seekEnemyCommandCenter(u)){
@@ -597,7 +583,12 @@ void soldierVision (Unidade* u){
 			debug("kill workers...\n");
 		}
 
-		nextSoldierVisionCheck = now + soldierVisionCheckInterval;
+		zealotCountVision = zealotCountVision + 1;
+		
+		if(zealotCountVision >= zealotCount){
+			zealotCountVision = 0;
+			nextSoldierVisionCheck = now() + soldierVisionCheckInterval;
+		}
 	}
 }
 
