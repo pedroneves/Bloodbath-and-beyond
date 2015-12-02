@@ -22,7 +22,9 @@ Unidade* Protoss_Gateway;
 // Scout vars ////////////////////////////////////////////////////////////////////////////////////////////////////
 Unidade* scout;
 
-
+// Informa qual o setor inicial
+char startingSector;
+std::string searchSequence;
 // Informa para qual setor o scout esta indo
 char currentDestSector; 
 // Raio de tolerancia para o centro do setor
@@ -35,6 +37,8 @@ double lastDistanceToNextSector = 100000;
 int nextSectorReachTryAmount = 0;
 // Quantidade maxima de vezes que se pode tentar chegar ao setor
 int maxAmountTryReachGoalRadius = 2;
+// Informa quantos setores foram visitados
+int checkedSectorsCount = 0;
 
 
 // Posicao da primeira estrutura inimiga encontrada
@@ -87,7 +91,7 @@ std::set<Unidade*> mineralsFoundByScout;
 
 int enemyCommandGoalRadius = 50;
 int zealotCount = 0;
-bool hasEnoughSoldiers = false;
+bool hasEnoughSoldiersToStart = false;
 
 // Quantidade em segundos que se vai checar a visao
 double soldierVisionCheckInterval = 1;
@@ -187,6 +191,18 @@ char getSector (BWAPI::Position p){
 	if(p.x() > C2 && p.y() > L2) return 'Z';
 }
 
+std::string getSectorSearchSequence (char initialSector){
+	if(initialSector == 'A') { return "AZMYXKCBL"; }
+	if(initialSector == 'B') { return "BYXZMCKAL"; }
+	if(initialSector == 'C') { return "CXYKABZML"; }
+	if(initialSector == 'M') { return "MKAXYZBCL"; }
+	if(initialSector == 'Z') { return "ZABKXYCML"; }
+	if(initialSector == 'Y') { return "YBACMZKXL"; }
+	if(initialSector == 'X') { return "XCBMZYAKL"; }
+	if(initialSector == 'K') { return "KMCZYXBAL"; }
+	if(initialSector == 'L') { return "LBYZMCAKX"; }
+}
+
 char getOppositeSector (char s){
 	if(s == 'A') return 'Z';
 	if(s == 'B') return 'Y';
@@ -260,7 +276,7 @@ bool isSoldier (Unidade* u){
 }
 
 Unidade* seesEnemyStructure (Unidade* u){
-	Unidade* retorno;
+	Unidade* retorno = NULL;
 	std::set<Unidade*> e = u->getEnemyUnits();
 	std::set<Unidade*>::iterator it;
 
@@ -276,7 +292,7 @@ Unidade* seesEnemyStructure (Unidade* u){
 }
 
 Unidade* seesEnemyCommand (Unidade* u){
-	Unidade* retorno;
+	Unidade* retorno = NULL;
 	std::set<Unidade*> e = u->getEnemyUnits();
 	std::set<Unidade*>::iterator it;
 
@@ -307,7 +323,7 @@ bool seesMinerals (Unidade* u){
 }
 
 Unidade* seesEnemyWorker (Unidade* u){
-	Unidade* retorno;
+	Unidade* retorno = NULL;
 	std::set<Unidade*> e = u->getEnemyUnits();
 	std::set<Unidade*>::iterator it;
 
@@ -337,13 +353,13 @@ char nextSector (Unidade* u){
 		dentro de um raio de tolerancia do destino, definido por
 		goalRadius
 	*/
- 
- 	std::string dbgmsg;
 
 	char currentSector = getSector((u->getPosition()));
 	char next = currentSector;
 	BWAPI::Position currentSectorCenter = getSectorCenter(currentSector);
 	lastDistanceToNextSector = distance(u->getPosition(), currentSectorCenter);
+ 
+	std::string dbg = "Initial sector: " + SSTR(startingSector) + " at " + SSTR(lastDistanceToNextSector) + " away ...";
 
 	if(distance(u->getPosition(), currentSectorCenter) > goalRadius){
 		next = currentSector;
@@ -364,8 +380,16 @@ char nextSector (Unidade* u){
 			goalRadius = goalRadius + goalRadiusDelta;
 			nextSectorReachTryAmount = 0;
 		}
+
+		dbg = dbg + "Couldnt reach. Try: " + SSTR(nextSectorReachTryAmount) + " | Radius: " + SSTR(goalRadius); 
 	}else{
-		if(currentSector == 'A') next = 'B';
+		dbg = dbg + "REACHED! Sector count from " + SSTR(checkedSectorsCount) + " to "; 
+
+		checkedSectorsCount = (int) (checkedSectorsCount + 1) % 9;
+
+		dbg = dbg + SSTR(checkedSectorsCount); 
+
+		/*if(currentSector == 'A') next = 'B';
 		if(currentSector == 'B') next = 'C';
 		if(currentSector == 'C') next = 'M';
 		if(currentSector == 'K') next = 'L';
@@ -373,12 +397,16 @@ char nextSector (Unidade* u){
 		if(currentSector == 'M') next = 'Z';
 		if(currentSector == 'X') next = 'K';
 		if(currentSector == 'Y') next = 'X';
-		if(currentSector == 'Z') next = 'Y';
+		if(currentSector == 'Z') next = 'Y';*/
 
 		// reseta os parametros
 		goalRadius = 50;
 		nextSectorReachTryAmount = 0;
+
+		next = searchSequence[checkedSectorsCount];
 	}
+
+	debug(dbg + " | Next: " + SSTR(next) + "\n");
 
 	return next;
 }
@@ -434,13 +462,15 @@ void scoutVision (Unidade* u){
 		
 		if(seesEnemyStructure(u)){
 			if(!foundFirstEnemyStructure){
+				debug("Enemy STRUCTURE found!\n");
 				foundFirstEnemyStructure = true;
 				enemyStructure = seesEnemyStructure(u);
 				firstEnemyStructureFoundPosition = enemyStructure->getPosition();
 			}
 
 			if(seesEnemyCommand(u)){
-				if(!foundEnemyCommand){
+					if(!foundEnemyCommand){
+					debug("Enemy COMMAND found!\n");
 					foundEnemyCommand = true;
 					enemyCommand = seesEnemyCommand(u);
 					enemyCommandPosition = enemyCommand->getPosition();
@@ -513,6 +543,13 @@ DWORD WINAPI threadAgente(LPVOID param){
 		}
 
 		if(u == scout) {
+			if(!startingSector){
+				debug("Accquiring initial sector...");
+				startingSector = getSector(u->getPosition());
+				debug("Done: " + SSTR(startingSector) + "\nAccquiring sector search sequence...");
+				searchSequence = getSectorSearchSequence(startingSector);
+				debug("Done: " + searchSequence + "\n");
+			}
 			scoutVision(u);
 		};
 
@@ -530,66 +567,67 @@ DWORD WINAPI threadAgente(LPVOID param){
 
 
 bool seekEnemyWorker(Unidade* u){
-	bool found = false;
-
-	if(foundEnemyCommand){
-
-		if(u->getDistance(enemyCommandPosition) < 50){
-			std::set<Unidade*> e = u->getEnemyUnits();
-			std::set<Unidade*>::iterator it;
-			bool attackingWorker = false;
-
-			if(!e.empty()){
-				
-				for (it = e.begin(); it != e.end() && !attackingWorker; ++it){
-					Unidade* f = *it;
-					
-					if(u->isEnemy(f) && f->getType().isWorker()){
-						u->attack(f);
-						attackingWorker = true;
-						found = true;
-					}
+	if(u){
+		if(foundEnemyCommand){
+			if(u->getDistance(enemyCommandPosition) < 50){
+				if(seesEnemyWorker(u)){
+					u->attack(seesEnemyWorker(u));
+					return true;
+				}else{
+					return false;
 				}
+			}else{
+				u->move(enemyCommandPosition);
+				return false;
 			}
 		}else{
-			u->move(enemyCommandPosition);
+			return false;
 		}
+	}else{
+		return false;
 	}
-
-	return found;
 }
 
 bool seekEnemyCommandCenter (Unidade* u){
-	bool found = false;
+	Unidade* enemeyCc = seesEnemyCommand(u);
 
-	if(foundEnemyCommand){
-		found = true;
-		u->attack(enemyCommandPosition);
+	if(u){
+		if(foundEnemyCommand){
+			if(enemeyCc){
+				u->attack(enemeyCc);
+				return true;
+			}else{
+				u->move(enemyCommandPosition);
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}else{
+		return false;
 	}
-
-	return found;
 }
 
 void soldierVision (Unidade* u){
-	if(now() > nextSoldierVisionCheck){
 
-		if(!seekEnemyWorker(u)){
-			if(!seekEnemyCommandCenter(u)){
-				debug("kill structs...\n");
-			}else{
-				debug("kill command center...\n");
+	if(u){
+		if(now() > nextSoldierVisionCheck){
+
+			if(hasEnoughSoldiersToStart){
+				if(!seekEnemyWorker(u)){
+					seekEnemyCommandCenter(u);
+				}
 			}
-		}else{
-			debug("kill workers...\n");
-		}
 
-		zealotCountVision = zealotCountVision + 1;
-		
-		if(zealotCountVision >= zealotCount){
-			zealotCountVision = 0;
-			nextSoldierVisionCheck = now() + soldierVisionCheckInterval;
+			zealotCountVision = zealotCountVision + 1;
+			
+			if(zealotCountVision >= zealotCount){
+				zealotCountVision = 0;
+				nextSoldierVisionCheck = now() + soldierVisionCheckInterval;
+			}
 		}
 	}
+
 }
 
 void updateSoldiers(){
@@ -604,14 +642,14 @@ void updateSoldiers(){
 		}
 	}
 
-	hasEnoughSoldiers = ((zealotCount / 4) >= 1);
+	if(!hasEnoughSoldiersToStart){
+		hasEnoughSoldiersToStart = ((zealotCount / 4) >= 1);
+	}
 
-	if(hasEnoughSoldiers){
-		for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
-			f = *it;
-			if(isZealot(f)){
-				soldierVision(f);
-			}
+	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
+		f = *it;
+		if(isZealot(f)){
+			soldierVision(f);
 		}
 	}
 }
