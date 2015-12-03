@@ -28,9 +28,9 @@ std::string searchSequence;
 // Informa para qual setor o scout esta indo
 char currentDestSector; 
 // Raio de tolerancia para o centro do setor
-int goalRadius = 50;
+int goalRadius = 15;
 // Em quanto o raio de tolerancia vai aumentar
-int goalRadiusDelta = 75;
+int goalRadiusDelta = 85;
 // Verificador para informar a ultima distancia conhecida para o centro do setor
 double lastDistanceToNextSector = 100000;
 // Quantidade de vezes que se tentou chegar ao centro do setor
@@ -359,7 +359,7 @@ char nextSector (Unidade* u){
 	BWAPI::Position currentSectorCenter = getSectorCenter(currentSector);
 	lastDistanceToNextSector = distance(u->getPosition(), currentSectorCenter);
  
-	std::string dbg = "Initial sector: " + SSTR(startingSector) + " at " + SSTR(lastDistanceToNextSector) + " away ...";
+	std::string dbg = "Starting at " + SSTR(startingSector) + " ";
 
 	if(distance(u->getPosition(), currentSectorCenter) > goalRadius){
 		next = currentSector;
@@ -381,9 +381,9 @@ char nextSector (Unidade* u){
 			nextSectorReachTryAmount = 0;
 		}
 
-		dbg = dbg + "Couldnt reach. Try: " + SSTR(nextSectorReachTryAmount) + " | Radius: " + SSTR(goalRadius); 
+		dbg = dbg + "Couldnt reach '" + SSTR(next) + "'. Try: " + SSTR(nextSectorReachTryAmount) + " | Radius: " + SSTR(goalRadius); 
 	}else{
-		dbg = dbg + "REACHED! Sector count from " + SSTR(checkedSectorsCount) + " to "; 
+		dbg = dbg + "REACHED '" + SSTR(next) + "'! Sector count from " + SSTR(checkedSectorsCount) + " to "; 
 
 		checkedSectorsCount = (int) (checkedSectorsCount + 1) % 9;
 
@@ -627,7 +627,6 @@ void soldierVision (Unidade* u){
 			}
 		}
 	}
-
 }
 
 void updateSoldiers(){
@@ -643,7 +642,7 @@ void updateSoldiers(){
 	}
 
 	if(!hasEnoughSoldiersToStart){
-		hasEnoughSoldiersToStart = ((zealotCount / 4) >= 1);
+		hasEnoughSoldiersToStart = ((zealotCount / 5) >= 1);
 	}
 
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
