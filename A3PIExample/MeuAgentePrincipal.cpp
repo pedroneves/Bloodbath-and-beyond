@@ -98,7 +98,7 @@ std::set<Unidade*> mineralsFoundByScout;
 // Soldier vars ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int enemyCommandGoalRadius = 50;
-int zealotCount = 0;
+int zealotCountAtBase = 0;
 bool hasEnoughSoldiersToStart = false;
 
 // Quantidade em segundos que se vai checar a visao
@@ -107,6 +107,8 @@ double soldierVisionCheckInterval = 1;
 double nextSoldierVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + soldierVisionCheckInterval;
 int zealotCountVision = 0;
 
+int minimumAmountOfSoldiersToAttack = 6;
+int protectionCCRadius = 45;
 // END SOLDIER VARS ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RECURSOS//
@@ -283,6 +285,22 @@ bool isSoldier (Unidade* u){
 	return (!(u->getType().isWorker()) && !(u->getType().isBuilding()));
 }
 
+Unidade* seesEnemyUnit (Unidade* u){
+	Unidade* retorno = NULL;
+	std::set<Unidade*> e = u->getEnemyUnits();
+	std::set<Unidade*>::iterator it;
+
+	if(!e.empty()){
+		for (it = e.begin(); it != e.end(); ++it){
+			if(u->isEnemy((*it)) && (!(*it)->getType().isBuilding())){
+				retorno = *it;
+			}
+		}
+	}
+
+	return retorno;
+}
+
 Unidade* seesEnemyStructure (Unidade* u){
 	Unidade* retorno = NULL;
 	std::set<Unidade*> e = u->getEnemyUnits();
@@ -374,28 +392,23 @@ BWAPI::Position getSectorCornerPosition (char s, int c){
 }
 
 void moveInsideSector (Unidade* u){
-	debug("Searching inside a sector " + SSTR(localSearchSector));
 
 	BWAPI::Position cornerPos = getSectorCornerPosition(localSearchSector, corner);
 	lastDistanceToNextCorner = distance(u->getPosition(), cornerPos);
 	
 	if(distance(u->getPosition(), cornerPos) > cornerGoalRadius){
-		debug(" Couldnt reach corner: " + SSTR(corner));
 
 		if(distance(u->getPosition(), cornerPos) >= lastDistanceToNextCorner){
 			cornerReachTryCount++;
-			debug(" | Try: " + SSTR(cornerReachTryCount));
 		}
 
 		if(cornerReachTryCount >= maxCornerReachTries){
 			cornerGoalRadius = cornerGoalRadius + cornerGoalRadiusDelta;
 			cornerReachTryCount = 0;
-			debug(" | Radius: " + SSTR(cornerGoalRadius));
 		}
 
 		u->rightClick(cornerPos);
 	}else{
-		debug(" REACHED corner: " + SSTR(corner));
 
 		// reseta os parametros
 		lastDistanceToNextCorner = 10000;
@@ -404,18 +417,13 @@ void moveInsideSector (Unidade* u){
 		
 		corner++;
 
-		debug(" | Next corner: " + SSTR(corner));
-
 		if(corner > 3){
-			debug(" All corner reached!\n");
 			corner = 0;
 			isSearchingInsideSector = false;
 		}else{
 			u->rightClick(getSectorCornerPosition(localSearchSector, corner));
 		}
 	}
-
-	debug("\n");
 }
 
 void moveNextSector (Unidade* u){
@@ -647,17 +655,36 @@ bool seekEnemyWorker(Unidade* u){
 }
 
 bool seekEnemyCommandCenter (Unidade* u){
-	Unidade* enemeyCc = seesEnemyCommand(u);
+	Unidade* enemyCc = seesEnemyCommand(u);
 
 	if(u){
 		if(foundEnemyCommand){
-			if(enemeyCc){
-				u->attack(enemeyCc);
+			if(enemyCc){
+				u->attack(enemyCc);
 				return true;
 			}else{
 				u->move(enemyCommandPosition);
 				return false;
 			}
+		}else{
+			return false;
+		}
+	}else{
+		return false;
+	}
+}
+
+bool seekAnyEnemy (Unidade* u){
+	Unidade* enemy = seesEnemyUnit(u);
+
+	if(u){
+		if(enemy == NULL){
+			enemy = seesEnemyStructure(u);
+		}
+
+		if(enemy != NULL){
+			u->attack(enemy);
+			return true;
 		}else{
 			return false;
 		}
@@ -673,13 +700,17 @@ void soldierVision (Unidade* u){
 
 			if(hasEnoughSoldiersToStart){
 				if(!seekEnemyWorker(u)){
-					seekEnemyCommandCenter(u);
+					if(!seekEnemyCommandCenter(u)){
+						seekAnyEnemy(u);
+					}
 				}
+			}else{
+				seekAnyEnemy(u);
 			}
 
 			zealotCountVision = zealotCountVision + 1;
 			
-			if(zealotCountVision >= zealotCount){
+			if(zealotCountVision >= zealotCountAtBase){
 				zealotCountVision = 0;
 				nextSoldierVisionCheck = now() + soldierVisionCheckInterval;
 			}
@@ -690,23 +721,36 @@ void soldierVision (Unidade* u){
 void updateSoldiers(){
 	std::set<Unidade*> unidades = Protoss_Nexus->getAllyUnits();
 	Unidade* f;
-	zealotCount = 0;
+	zealotCountAtBase = 0;
 
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
 		f = *it;
-		if(isZealot(f)){
-			zealotCount = zealotCount + 1;
+		if(isZealot(f) && f->isIdle()){
+			if(enemyCommandPosition && (getSector(f->getPosition()) != getSector(enemyCommandPosition))){
+				zealotCountAtBase = zealotCountAtBase + 1;
+			}
 		}
 	}
 
-	if(!hasEnoughSoldiersToStart){
-		hasEnoughSoldiersToStart = ((zealotCount / 5) >= 1);
-	}
+	hasEnoughSoldiersToStart = ((zealotCountAtBase / minimumAmountOfSoldiersToAttack) >= 1);
 
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
 		f = *it;
 		if(isZealot(f)){
 			soldierVision(f);
+
+			int randX = (rand() % protectionCCRadius);
+			int randY = (rand() % protectionCCRadius);
+			if(rand()%2 == 1){randX = 0 - randX;}
+			if(rand()%2 == 1){randY = 0 - randY;}
+			if(
+				f->isIdle() && 
+				!hasEnoughSoldiersToStart && 
+				(getSector(f->getPosition()) == getSector(Protoss_Nexus->getPosition())) && 
+				f->getDistance(Protoss_Nexus) > protectionCCRadius
+			){
+				f->move(BWAPI::Position(Protoss_Nexus->getPosition().x() + randX, Protoss_Nexus->getPosition().y() + randY ));
+			}
 		}
 	}
 }
