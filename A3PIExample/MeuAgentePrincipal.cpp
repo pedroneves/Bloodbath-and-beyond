@@ -812,54 +812,40 @@ void updateBlackBoard(){
 }
 
 void buildPylon(){
-	resourceSemaphore = true;
-	Unidade* worker = Protoss_Workers[numWorkers-1];
-	Selected_Worker = worker;
-	Unidade* closestMin = NULL;
-	int distance = 99999;
-	std::set<Unidade*> minerais = Protoss_Nexus->getMinerals();
-	for(std::set<Unidade*>::iterator it = minerais.begin(); it != minerais.end(); it++){
-		if(Protoss_Nexus->getDistance(*it) < distance){
-			distance = Protoss_Nexus->getDistance(*it);
-			closestMin = *it;
+	
+Unidade* nexus = Protoss_Nexus;
+
+//nexus->getDistance();
+//nexus->getPosition();
+
+BWAPI::TilePosition aroundTile = nexus->getTilePosition();
+
+int minDist = 3;
+int stopDist = 40;
+BWAPI::TilePosition tposition;
+
+while ((minDist < stopDist) && (tposition == NULL)) {
+	for (int i=aroundTile.x() - minDist; i<=aroundTile.x() + minDist; i++) {
+		for (int j=aroundTile.y() - minDist; j<=aroundTile.y() + minDist; j++) {
+				if (nexus->isBuildable(BWAPI::TilePosition(i,j))) {
+					
+							tposition = BWAPI::TilePosition(i,j);
+
+				}
 			}
-	}
-	Unidade* nexus = Protoss_Nexus;
-	int delta_y;
-	int delta_x;
-	int desviox= 0;
-	int desvioy= 0;
-	if(closestMin != NULL){
-		delta_y	=	nexus->getPosition().y() - closestMin->getPosition().y();
-		delta_x =	nexus->getPosition().x() - closestMin->getPosition().x();
-		BWAPI::Position setPos = BWAPI::Position(nexus->getPosition().x()+delta_x*1.8/3,nexus->getPosition().y()+delta_y*1.8/3);
-		worker->build(BWAPI::TilePosition(setPos),UnitTypes::Protoss_Pylon);
-		while(!worker->isConstructing())
-		{
-			desviox += 5*(rand()%3-1);
-			desvioy += 5*(rand()%3-1);
-			printf("\nBAD pylon POS >>:%d Y:%d ",setPos.x(),setPos.y());
-			setPos = BWAPI::Position(nexus->getPosition().x()+delta_x*2/3 +desviox,nexus->getPosition().y()+delta_y*2/3 +desvioy);
-			worker->build(BWAPI::TilePosition(setPos),UnitTypes::Protoss_Pylon);
 		}
-		printf("\n\nX:%d Y:%d \n",setPos.x(),setPos.y());
-		worker->build(BWAPI::TilePosition(setPos),UnitTypes::Protoss_Pylon);
-	}else{
-		Unidade* pylon_vizinho = Protoss_Pylons[numPylons-1];
-		BWAPI::Position setPos = BWAPI::Position(nexus->getPosition().x()+50,nexus->getPosition().y()+50);
-		worker->build(BWAPI::TilePosition(setPos),UnitTypes::Protoss_Pylon);
-		while(!worker->isConstructing())
-		{
-			desviox += 5*(rand()%3-1);
-			desvioy += 5*(rand()%3-1);
-			printf("\nBAD POS >>:%d Y:%d ",setPos.x(),setPos.y());
-			setPos = BWAPI::Position(nexus->getPosition().x()+delta_x*2/3 +desviox,nexus->getPosition().y()+delta_y*2/3 +desvioy);
-			worker->build(BWAPI::TilePosition(setPos),UnitTypes::Protoss_Pylon);
-		}
-		worker->build(BWAPI::TilePosition(setPos),UnitTypes::Protoss_Pylon);
-	}
-	Selected_Worker = NULL;
-	resourceSemaphore = false;
+
+minDist+2;
+}
+
+
+//  bool x = u->hasPower(3,4,50,60);
+//	u->isBuildable(50,50);
+//	u->isBuildable(BWAPI::TilePosition(3,5));
+
+
+
+	
 }
 
 void buildGateway(){
