@@ -788,7 +788,7 @@ void updateBlackBoard(){
 	std::set<Unidade*> unidades= Protoss_Nexus->getAllyUnits();
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++)
 	{
-		if ((*it)->getType().isWorker())
+		if ((*it)->getType().isWorker() && (*it)!=scout)
 		{
 			Protoss_Workers [w] = (*it);
 			w++;
@@ -812,24 +812,32 @@ void updateBlackBoard(){
 }
 
 void buildPylon(){
+
+	resourceSemaphore = true;
 	
 Unidade* nexus = Protoss_Nexus;
+Unidade* worker = Protoss_Workers[numWorkers-1];
 
 //nexus->getDistance();
 //nexus->getPosition();
 
 BWAPI::TilePosition aroundTile = nexus->getTilePosition();
 
-int minDist = 3;
+int minDist = 8;
 int stopDist = 40;
-BWAPI::TilePosition tposition;
 
-while ((minDist < stopDist) && (tposition == NULL)) {
-	for (int i=aroundTile.x() - minDist; i<=aroundTile.x() + minDist; i++) {
-		for (int j=aroundTile.y() - minDist; j<=aroundTile.y() + minDist; j++) {
-				if (nexus->isBuildable(BWAPI::TilePosition(i,j))) {
-					
-							tposition = BWAPI::TilePosition(i,j);
+//debug("Pylon \n");
+       
+
+ while(!worker->isConstructing()) {
+	for (int i=aroundTile.x(); (i<=aroundTile.x() + minDist) && !worker->isConstructing(); i++) {
+		for (int j=aroundTile.y(); (j<=aroundTile.y() + minDist) && !worker->isConstructing(); j++) {
+
+			//debug("1 Position: " + SSTR(i) + " " + SSTR(j) + "\n");
+
+				if (worker->isBuildable(BWAPI::TilePosition(i,j))) {
+					//debug("2 Position: " + SSTR(i) + " " + SSTR(j) + "\n");
+							worker->build(BWAPI::TilePosition(i,j),UnitTypes::Protoss_Pylon);
 
 				}
 			}
@@ -838,6 +846,10 @@ while ((minDist < stopDist) && (tposition == NULL)) {
 minDist+2;
 }
 
+
+
+
+resourceSemaphore = false;
 
 //  bool x = u->hasPower(3,4,50,60);
 //	u->isBuildable(50,50);
@@ -920,7 +932,7 @@ DWORD WINAPI general_recursos(LPVOID param){
 			buildPylon();
 		}
 
-		if(Protoss_Nexus->minerals() > 150 && numPylons>0 && resourceSemaphore == false){
+		if(Protoss_Nexus->minerals() > 150 && numPylons>0 && resourceSemaphore == false && numGateways < 2){
 			buildGateway();
 		}
 
