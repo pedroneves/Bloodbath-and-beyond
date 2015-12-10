@@ -791,7 +791,7 @@ void updateBlackBoard(){
 		if ((*it)->getType().isWorker())
 		{
 			Protoss_Workers [w] = (*it);
-			wt++;
+			w++;
 		}
 		else if ((*it)->getType() == BWAPI::UnitTypes::Protoss_Pylon)
 		{
