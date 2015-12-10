@@ -40,7 +40,6 @@ int maxAmountTryReachGoalRadius = 2;
 // Informa quantos setores foram visitados
 int checkedSectorsCount = 0;
 
-
 // Posicao da primeira estrutura inimiga encontrada
 BWAPI::Position firstEnemyStructureFoundPosition;
 // Flag se encontrou alguma estrutura inigmiga
@@ -49,6 +48,15 @@ bool foundFirstEnemyStructure = false;
 BWAPI::Position enemyCommandPosition;
 // Flag se encontrou centro de comando inigmigo
 bool foundEnemyCommand = false;
+
+char localSearchSector = 'A';
+bool isSearchingInsideSector = false;
+int corner = 0;
+int cornerGoalRadius = 25;
+int cornerGoalRadiusDelta = 120;
+int cornerReachTryCount = 0;
+int maxCornerReachTries = 1;
+double lastDistanceToNextCorner = 10000;
 
 
 // Em qual volta esta, quando se anda em espiral
@@ -344,7 +352,73 @@ void attackFirstEnemyWorker (Unidade* u){
 	}
 }
 
-char nextSector (Unidade* u){
+BWAPI::Position getSectorCornerPosition (char s, int c){
+	int width = centro.x()*2;
+	int height = centro.y()*2;
+
+	double C1 = width / 3;
+	double C2 = (2*width) / 3;
+
+	double L1 = height / 3;
+	double L2 = (2*height) / 3;
+
+	double halfSectorWidth = (C1 / 2);
+	double halfSectorHeight = (L1 / 2);
+
+	BWAPI::Position sectorCenter = getSectorCenter(s);
+
+	if(c == 0) return BWAPI::Position((int) (sectorCenter.x() - halfSectorWidth), (int) (sectorCenter.y() - halfSectorHeight));
+	if(c == 1) return BWAPI::Position((int) (sectorCenter.x() + halfSectorWidth), (int) (sectorCenter.y() - halfSectorHeight));
+	if(c == 2) return BWAPI::Position((int) (sectorCenter.x() - halfSectorWidth), (int) (sectorCenter.y() + halfSectorHeight));
+	if(c == 3) return BWAPI::Position((int) (sectorCenter.x() + halfSectorWidth), (int) (sectorCenter.y() + halfSectorHeight));
+}
+
+void moveInsideSector (Unidade* u){
+	debug("Searching inside a sector " + SSTR(localSearchSector));
+
+	BWAPI::Position cornerPos = getSectorCornerPosition(localSearchSector, corner);
+	lastDistanceToNextCorner = distance(u->getPosition(), cornerPos);
+	
+	if(distance(u->getPosition(), cornerPos) > cornerGoalRadius){
+		debug(" Couldnt reach corner: " + SSTR(corner));
+
+		if(distance(u->getPosition(), cornerPos) >= lastDistanceToNextCorner){
+			cornerReachTryCount++;
+			debug(" | Try: " + SSTR(cornerReachTryCount));
+		}
+
+		if(cornerReachTryCount >= maxCornerReachTries){
+			cornerGoalRadius = cornerGoalRadius + cornerGoalRadiusDelta;
+			cornerReachTryCount = 0;
+			debug(" | Radius: " + SSTR(cornerGoalRadius));
+		}
+
+		u->rightClick(cornerPos);
+	}else{
+		debug(" REACHED corner: " + SSTR(corner));
+
+		// reseta os parametros
+		lastDistanceToNextCorner = 10000;
+		cornerGoalRadius = 25;
+		cornerReachTryCount = 0;
+		
+		corner++;
+
+		debug(" | Next corner: " + SSTR(corner));
+
+		if(corner > 3){
+			debug(" All corner reached!\n");
+			corner = 0;
+			isSearchingInsideSector = false;
+		}else{
+			u->rightClick(getSectorCornerPosition(localSearchSector, corner));
+		}
+	}
+
+	debug("\n");
+}
+
+void moveNextSector (Unidade* u){
 	/*
 		Retorna para qual setor o scout deve ir.
 		A partir do setor atual, segue em um sentido horario.
@@ -354,16 +428,11 @@ char nextSector (Unidade* u){
 		goalRadius
 	*/
 
-	char currentSector = getSector((u->getPosition()));
-	char next = currentSector;
-	BWAPI::Position currentSectorCenter = getSectorCenter(currentSector);
+	currentDestSector = getSector((u->getPosition()));
+	BWAPI::Position currentSectorCenter = getSectorCenter(currentDestSector);
 	lastDistanceToNextSector = distance(u->getPosition(), currentSectorCenter);
  
-	std::string dbg = "Starting at " + SSTR(startingSector) + " ";
-
 	if(distance(u->getPosition(), currentSectorCenter) > goalRadius){
-		next = currentSector;
-
 		/*
 			Verifica se a regiao de tolerancia (goalRadius) eh alcancavel. Tenta alcanca-la por 
 			<maxAmountTryReachGoalRadius> se notar em algum momento que que a distancia nao diminui
@@ -381,34 +450,24 @@ char nextSector (Unidade* u){
 			nextSectorReachTryAmount = 0;
 		}
 
-		dbg = dbg + "Couldnt reach '" + SSTR(next) + "'. Try: " + SSTR(nextSectorReachTryAmount) + " | Radius: " + SSTR(goalRadius); 
 	}else{
-		dbg = dbg + "REACHED '" + SSTR(next) + "'! Sector count from " + SSTR(checkedSectorsCount) + " to "; 
 
-		checkedSectorsCount = (int) (checkedSectorsCount + 1) % 9;
+		if(isSearchingInsideSector){
+			moveInsideSector(u);
+		}else{
+			checkedSectorsCount = (int) (checkedSectorsCount + 1) % 9;
 
-		dbg = dbg + SSTR(checkedSectorsCount); 
+			// reseta os parametros
+			goalRadius = 50;
+			nextSectorReachTryAmount = 0;
+			isSearchingInsideSector = true;
 
-		/*if(currentSector == 'A') next = 'B';
-		if(currentSector == 'B') next = 'C';
-		if(currentSector == 'C') next = 'M';
-		if(currentSector == 'K') next = 'L';
-		if(currentSector == 'L') next = 'A';
-		if(currentSector == 'M') next = 'Z';
-		if(currentSector == 'X') next = 'K';
-		if(currentSector == 'Y') next = 'X';
-		if(currentSector == 'Z') next = 'Y';*/
-
-		// reseta os parametros
-		goalRadius = 50;
-		nextSectorReachTryAmount = 0;
-
-		next = searchSequence[checkedSectorsCount];
+			currentDestSector = searchSequence[checkedSectorsCount];
+			localSearchSector = currentDestSector;
+			
+			u->rightClick(getSectorCenter(currentDestSector));
+		}
 	}
-
-	debug(dbg + " | Next: " + SSTR(next) + "\n");
-
-	return next;
 }
 
 BWAPI::Position nextSpiralPosition (Unidade* u, BWAPI::Position center){
@@ -503,9 +562,8 @@ void AIBatedor (Unidade* u){
 		}else{
 			u->move(nextSpiralPosition(u, firstEnemyStructureFoundPosition));
 		}
-
 	}else{
-		u->rightClick(getSectorCenter(nextSector(u)));
+		moveNextSector(u);
 	}
 }
 
