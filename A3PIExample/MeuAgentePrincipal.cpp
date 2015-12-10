@@ -40,6 +40,7 @@ int maxAmountTryReachGoalRadius = 2;
 // Informa quantos setores foram visitados
 int checkedSectorsCount = 0;
 
+
 // Posicao da primeira estrutura inimiga encontrada
 BWAPI::Position firstEnemyStructureFoundPosition;
 // Flag se encontrou alguma estrutura inigmiga
@@ -824,6 +825,36 @@ void updateWorkers(){
 	numWorkers = cont;
 }
 
+void updateBlackBoard(){
+	int w = 0;
+	int p = 0;
+	int g = 0;
+	std::set<Unidade*> unidades= Protoss_Nexus->getAllyUnits();
+	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++)
+	{
+		if ((*it)->getType().isWorker())
+		{
+			Protoss_Workers [w] = (*it);
+			w++;
+		}
+		else if ((*it)->getType() == BWAPI::UnitTypes::Protoss_Pylon)
+		{
+			Protoss_Pylons [p] = (*it);
+			p++;
+		}else if ((*it)->getType() == BWAPI::UnitTypes::Protoss_Gateway)
+		{
+			Protoss_Gateways [g] = (*it);
+			g++;
+		}
+
+
+	}
+	numWorkers = w;
+	numPylons = p;
+	numGateways = g;
+
+}
+
 void buildPylon(){
 	resourceSemaphore = true;
 	Unidade* worker = Protoss_Workers[numWorkers-1];
@@ -934,7 +965,8 @@ DWORD WINAPI general_recursos(LPVOID param){
 		}
 		//Inserir o codigo de voces a partir daqui//
 		// Codigo General Recursos
-		updateWorkers();
+		 updateBlackBoard();
+		//updateWorkers();
 		//updatePylons();
 		//updateGateways();
 
@@ -959,47 +991,6 @@ DWORD WINAPI general_recursos(LPVOID param){
 	}
 }
 //----------------------------FIM RECURSOS---------------------------//
-
-DWORD WINAPI general(LPVOID param){
-
-	while(true){
-		//Se houve algum problema (ex: o jogo foi fechado) ou a unidade estah morta, finalizar a thread
-		if(GameOver) return 0;
-		
-		if(Protoss_Nexus != NULL && Protoss_Nexus->exists() && !Protoss_Nexus->checkNovoTurno()){
-			Sleep(10);
-			continue;
-		}
-		//Inserir o codigo de voces a partir daqui//
-		// Codigo General
-
-
-		//Protoss_Nexus->train(BWAPI::UnitTypes::Protoss_Probe);
-		//Protoss_Gateway->train(BWAPI::UnitTypes::Protoss_Zealot);//se for um gateway
-		//if((Protoss_Nexus->supplyTotal() - Protoss_Nexus->supplyUsed() < 5 || Protoss_Nexus->minerals() > 449) && amigoDaVez == NULL){
-			//botar no "blackboard" para alguem construir predios de supply
-			/*std::set<Unidade*> amigos = Protoss_Nexus->getAllyUnits();
-			for(std::set<Unidade*>::iterator it = amigos.begin(); it != amigos.end(); it++){
-				if((*it)->getType().isWorker()){
-					amigoDaVez = *it;
-					break;
-				}
-			}*/
-			//ISSO TALVEZ ESTEJA ATRAPALHANDO A CONSTRUCAO - fmm4
-
-		//}//Lembrar que ha varias threads rodando em paralelo. O erro presente neste metodo (qual?) nao resulta em crash do jogo, mas outros poderiam.
-
-
-
-
-
-
-
-		
-		//Fim Codigo Genaral
-		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread é muito mais rápida do que um turno do bwapi.
-	}
-}
 
 
 void MeuAgentePrincipal::InicioDePartida(){
@@ -1026,7 +1017,6 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 		int halfWidth = (AgentePrincipal::mapWidth()*16);
 		int halfHeight = (AgentePrincipal::mapHeight()*16);
 		centro = BWAPI::Position(halfWidth, halfHeight);
-		CreateThread(NULL,0,general,NULL,0,NULL);
 		CreateThread(NULL,0,general_recursos,NULL,0,NULL);
 		CreateThread(NULL,0,general_militar,NULL,0,NULL);
 
