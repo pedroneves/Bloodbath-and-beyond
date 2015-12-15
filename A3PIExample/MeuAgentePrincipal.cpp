@@ -102,6 +102,7 @@ std::set<Unidade*> mineralsFoundByScout;
 int enemyCommandGoalRadius = 50;
 int zealotCountAtBase = 0;
 bool hasEnoughSoldiersToStart = false;
+bool hasEnoughSoldiersToAttack = false;
 
 // Quantidade em segundos que se vai checar a visao
 double soldierVisionCheckInterval = 1;
@@ -109,7 +110,8 @@ double soldierVisionCheckInterval = 1;
 double nextSoldierVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + soldierVisionCheckInterval;
 int zealotCountVision = 0;
 
-int minimumAmountOfSoldiersToAttack = 6;
+int minimumAmountOfSoldiersToStartAttack = 5;
+int minimumAmountOfSoldiersToAttack = 3;
 int protectionCCRadius = 45;
 // END SOLDIER VARS ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -184,6 +186,10 @@ char getSector (BWAPI::Position p){
 	if(p.x() < C1 && p.y() > L2) return 'X';
 	if(p.x() > C1 && p.x() < C2 && p.y() > L2) return 'Y';
 	if(p.x() > C2 && p.y() > L2) return 'Z';
+}
+
+bool isInSameSector (BWAPI::Position p1, BWAPI::Position p2){
+	return (getSector(p1) == getSector(p2));
 }
 
 std::string getSectorSearchSequence (char initialSector){
@@ -324,9 +330,22 @@ bool seesMinerals (Unidade* u){
 	bool found = false;
 
 	if(!e.empty()){
+		debug("Found some shit...");
 		for (it = e.begin(); it != e.end(); ++it){
 			Unidade* f = *it;
-			mineralsFoundByScout.insert(f);
+
+			if(enemyCommandPosition != NULL){
+				debug("I know where the enemys base is, so is it in the same sector? ");
+				if(!isInSameSector(u->getPosition(), enemyCommandPosition)){
+					debug("Nope, adding!\n");
+					mineralsFoundByScout.insert(f);
+				}else{
+					debug("Yeah, well that sucks\n");
+				}
+			}else{
+				debug("Well dunno if its in enemy sector, so fuck that, add to list =)\n");
+				mineralsFoundByScout.insert(f);
+			}
 		}
 		found = true;
 	}
@@ -726,12 +745,16 @@ bool seekAnyEnemy (Unidade* u){
 	}
 }
 
+bool mayAttack (){
+	return (hasEnoughSoldiersToStart && hasEnoughSoldiersToAttack);
+}
+
 void soldierVision (Unidade* u){
 
 	if(u){
 		if(now() > nextSoldierVisionCheck){
 
-			if(hasEnoughSoldiersToStart){
+			if(mayAttack()){
 				if(!seekEnemyWorker(u)){
 					if(!seekEnemyCommandCenter(u)){
 						seekAnyEnemy(u);
@@ -759,13 +782,19 @@ void updateSoldiers(){
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
 		f = *it;
 		if(isZealot(f) && f->isIdle()){
-			if(enemyCommandPosition && (getSector(f->getPosition()) != getSector(enemyCommandPosition))){
+			if(isInSameSector(f->getPosition(), Protoss_Nexus->getPosition())){
 				zealotCountAtBase = zealotCountAtBase + 1;
 			}
 		}
 	}
 
-	hasEnoughSoldiersToStart = ((zealotCountAtBase / minimumAmountOfSoldiersToAttack) >= 1);
+	if(hasEnoughSoldiersToStart){
+		hasEnoughSoldiersToAttack = (zealotCountAtBase >= minimumAmountOfSoldiersToAttack);
+	}
+
+	if(!hasEnoughSoldiersToStart){
+		hasEnoughSoldiersToStart = (zealotCountAtBase >= minimumAmountOfSoldiersToStartAttack);
+	}
 
 	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
 		f = *it;
@@ -778,8 +807,8 @@ void updateSoldiers(){
 			if(rand()%2 == 1){randY = 0 - randY;}
 			if(
 				f->isIdle() && 
-				!hasEnoughSoldiersToStart && 
-				(getSector(f->getPosition()) == getSector(Protoss_Nexus->getPosition())) && 
+				!mayAttack() && 
+				isInSameSector(f->getPosition(), Protoss_Nexus->getPosition()) && 
 				f->getDistance(Protoss_Nexus) > protectionCCRadius
 			){
 				f->move(BWAPI::Position(Protoss_Nexus->getPosition().x() + randX, Protoss_Nexus->getPosition().y() + randY ));
