@@ -110,7 +110,7 @@ double soldierVisionCheckInterval = 1;
 double nextSoldierVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + soldierVisionCheckInterval;
 int zealotCountVision = 0;
 
-int minimumAmountOfSoldiersToStartAttack = 500;
+int minimumAmountOfSoldiersToStartAttack = 5;
 int minimumAmountOfSoldiersToAttack = 3;
 int protectionCCRadius = 45;
 // END SOLDIER VARS ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -332,20 +332,14 @@ bool seesMinerals (Unidade* u){
 	bool found = false;
 
 	if(!e.empty()){
-		debug("Found some shit...");
 		for (it = e.begin(); it != e.end(); ++it){
 			Unidade* f = *it;
 
 			if(enemyCommandPosition != NULL){
-				debug("I know where the enemys base is, so is it in the same sector? ");
 				if(!isInSameSector(u->getPosition(), enemyCommandPosition)){
 					mineralsFoundByScout.insert(f);
-					debug("Nope, adding! Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
-				}else{
-					debug("Yeah, well that sucks. Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
 				}
 			}else{
-				debug("Well dunno if its in enemy sector, so fuck that, add to list =)\n");
 				mineralsFoundByScout.insert(f);
 			}
 		}
@@ -593,12 +587,10 @@ void AITrabalhador (Unidade* u){
 	{
 		if(Protoss_Nexus != NULL)
 		{
-			debug("Nexus exists...");
 			std::set<Unidade*> minerais = Protoss_Nexus->getMinerals();
 	
 			if(!minerais.empty())
 			{
-				debug("still have some minerals, total: " + SSTR(minerais.size()) + "...\n");
 				for(std::set<Unidade*>::iterator it = minerais.begin(); it != minerais.end(); it++)
 				{
 					if(Protoss_Nexus->getDistance(*it) < distance)
@@ -610,19 +602,20 @@ void AITrabalhador (Unidade* u){
 		
 			}else 
 			{
-				debug("Need minerals from scout. Total: " + SSTR(mineralsFoundByScout.size()) + "...\n");
+				debug("Scout Minerals: " + SSTR(mineralsFoundByScout.size()) + "...\n");
 				for(std::set<Unidade*>::iterator it = mineralsFoundByScout.begin(); it != mineralsFoundByScout.end(); it++)
 				{
 					if(Protoss_Nexus->getDistance(*it) < distance)
 					{
 						distance = Protoss_Nexus->getDistance(*it);
 						mineralPerto = *it;
+						debug("Mais perto a " + SSTR(distance) + " ");
 					}
 				}
 			}
 	
-			if(mineralPerto != NULL){u->rightClick(mineralPerto);}
-			if(mineralPerto == NULL){u->move(Protoss_Nexus->getPosition());}
+			if(mineralPerto != NULL){debug("Mais perto encontrado\n"); u->rightClick(mineralPerto);}
+			if(mineralPerto == NULL){debug("Mais perto nao encontrado\n"); u->move(Protoss_Nexus->getPosition());}
 		}
 	}
 }
