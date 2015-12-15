@@ -339,9 +339,11 @@ bool seesMinerals (Unidade* u){
 			if(enemyCommandPosition != NULL){
 				if(!isInSameSector(u->getPosition(), enemyCommandPosition)){
 					mineralsFoundByScout.insert(f);
+					debug("Minerals found! Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
 				}
 			}else{
 				mineralsFoundByScout.insert(f);
+				debug("Minerals found! Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
 			}
 		}
 		found = true;
@@ -578,8 +580,9 @@ void AIBatedor (Unidade* u){
 }
 
 void AITrabalhador (Unidade* u){
-	double distance = 99999;
+	double dist = 99999;
 	Unidade* mineralPerto = NULL;
+	Unidade* f = NULL;
 	
 	if(seesEnemyWorker(u))
 	{
@@ -594,29 +597,33 @@ void AITrabalhador (Unidade* u){
 			{
 				for(std::set<Unidade*>::iterator it = minerais.begin(); it != minerais.end(); it++)
 				{
-					if(Protoss_Nexus->getDistance(*it) < distance)
+					if(Protoss_Nexus->getDistance(*it) < dist)
 					{
-						distance = Protoss_Nexus->getDistance(*it);
+						dist = Protoss_Nexus->getDistance(*it);
 						mineralPerto = *it;
 					}
 				}
 		
 			}else 
 			{
-				debug("Scout Minerals: " + SSTR(mineralsFoundByScout.size()) + "...\n");
 				for(std::set<Unidade*>::iterator it = mineralsFoundByScout.begin(); it != mineralsFoundByScout.end(); it++)
 				{
-					if(Protoss_Nexus->getDistance(*it) < distance)
+					f = *it;
+
+					if(f != NULL && f->exists() && distance(Protoss_Nexus->getPosition(), f->getPosition()) < dist)
 					{
-						distance = Protoss_Nexus->getDistance(*it);
-						mineralPerto = *it;
-						debug("Mais perto a " + SSTR(distance) + " ");
+						dist = distance(Protoss_Nexus->getPosition(), f->getPosition());
+						mineralPerto = f;
 					}
 				}
 			}
 	
-			if(mineralPerto != NULL){debug("Mais perto encontrado\n"); u->rightClick(mineralPerto);}
-			if(mineralPerto == NULL){debug("Mais perto nao encontrado\n"); u->move(Protoss_Nexus->getPosition());}
+			if(mineralPerto != NULL){
+				u->gather(mineralPerto);
+			}
+			if(mineralPerto == NULL){
+				u->move(Protoss_Nexus->getPosition());
+			}
 		}
 	}
 }
