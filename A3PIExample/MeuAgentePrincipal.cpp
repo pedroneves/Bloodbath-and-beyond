@@ -262,7 +262,9 @@ bool isCommandCenter (Unidade* u){
 	BWAPI::UnitType t = u->getType();
 
 	return
-		t == BWAPI::UnitTypes::Zerg_Infested_Command_Center ||
+		t == BWAPI::UnitTypes::Zerg_Hatchery || 
+		t == BWAPI::UnitTypes::Zerg_Lair || 
+		t == BWAPI::UnitTypes::Zerg_Hive || 
 		t == BWAPI::UnitTypes::Protoss_Nexus ||
 		t == BWAPI::UnitTypes::Terran_Command_Center
 	;
