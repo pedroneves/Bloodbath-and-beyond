@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <ctime>
+#include <set>
 
 using namespace BWAPI;
  
@@ -129,7 +130,7 @@ bool GameOver = false;
 bool hasScout = false;
 
 double now () {
-	return (std::clock() / (double) CLOCKS_PER_SEC);
+	return (std::clock() / ((double) CLOCKS_PER_SEC));
 }
 
 //
@@ -148,23 +149,6 @@ void debug (std::string s){
 	std::wstring stemp = s2ws(s);
 	OutputDebugString(stemp.c_str());
 }
-
-void AITrabalhador (Unidade* u){
-	double distance = 99999;
-	Unidade* mineralPerto = NULL;
-	if(Protoss_Nexus != NULL){
-	std::set<Unidade*> minerais = Protoss_Nexus->getMinerals();
-	for(std::set<Unidade*>::iterator it = minerais.begin(); it != minerais.end(); it++){
-		if(Protoss_Nexus->getDistance(*it) < distance){
-			distance = Protoss_Nexus->getDistance(*it);
-			mineralPerto = *it;
-		}
-	}
-	if(mineralPerto != NULL){u->rightClick(mineralPerto);}
-	if(mineralPerto == NULL){u->move(Protoss_Nexus->getPosition());}
-	}
-}
-//Modificado
 
 char getSector (BWAPI::Position p){
 	/*
@@ -344,6 +328,7 @@ bool seesMinerals (Unidade* u){
 			Unidade* f = *it;
 			mineralsFoundByScout.insert(f);
 		}
+		found = true;
 	}
 
 	return found;
@@ -576,6 +561,53 @@ void AIBatedor (Unidade* u){
 	}
 }
 
+void AITrabalhador (Unidade* u){
+	double distance = 99999;
+	Unidade* mineralPerto = NULL;
+	
+	if(seesEnemyWorker(u))
+	{
+		u->attack(seesEnemyWorker(u));
+	}else
+	{
+		if(Protoss_Nexus != NULL)
+		{
+			std::set<Unidade*> minerais = Protoss_Nexus->getMinerals();
+	
+			if(!minerais.empty())
+			{
+				for(std::set<Unidade*>::iterator it = minerais.begin(); it != minerais.end(); it++)
+				{
+					if(Protoss_Nexus->getDistance(*it) < distance)
+					{
+						distance = Protoss_Nexus->getDistance(*it);
+						mineralPerto = *it;
+					}
+				}
+		
+			}else 
+			{
+				for(std::set<Unidade*>::iterator it = mineralsFoundByScout.begin(); it != mineralsFoundByScout.end(); it++)
+				{
+					if((*it)->minerals() > 0)
+					{
+						if(Protoss_Nexus->getDistance(*it) < distance)
+						{
+							distance = Protoss_Nexus->getDistance(*it);
+							mineralPerto = *it;
+						}
+				
+					}else{mineralsFoundByScout.erase(*it);}
+				}
+			}
+	
+			if(mineralPerto != NULL){u->rightClick(mineralPerto);}
+			if(mineralPerto == NULL){u->move(Protoss_Nexus->getPosition());}
+		}
+	}
+}
+//Modificado
+
 Unidade* AIGuerreiro (Unidade* caboSoldado[]){
 
 	Unidade* cabo = caboSoldado[0];
@@ -618,7 +650,7 @@ DWORD WINAPI threadAgente(LPVOID param){
 				debug("Done: " + searchSequence + "\n");
 			}
 			scoutVision(u);
-		};
+		}
 
 		//Inserir o codigo de voces a partir daqui//
 		if(u->isIdle()){ //nao ta fazendo nada, fazer algo util
@@ -841,10 +873,15 @@ void updateBlackBoard(){
 		{
 			Protoss_Pylons [p] = (*it);
 			p++;
+			
+			seesMinerals(*it);
+			
 		}else if ((*it)->getType() == BWAPI::UnitTypes::Protoss_Gateway)
 		{
 			Protoss_Gateways [g] = (*it);
 			g++;
+			
+			seesMinerals(*it);
 		}
 
 
