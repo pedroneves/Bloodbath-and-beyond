@@ -110,7 +110,7 @@ double soldierVisionCheckInterval = 1;
 double nextSoldierVisionCheck = (std::clock() / ((double) CLOCKS_PER_SEC)) + soldierVisionCheckInterval;
 int zealotCountVision = 0;
 
-int minimumAmountOfSoldiersToStartAttack = 5;
+int minimumAmountOfSoldiersToStartAttack = 500;
 int minimumAmountOfSoldiersToAttack = 3;
 int protectionCCRadius = 45;
 // END SOLDIER VARS ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -339,10 +339,10 @@ bool seesMinerals (Unidade* u){
 			if(enemyCommandPosition != NULL){
 				debug("I know where the enemys base is, so is it in the same sector? ");
 				if(!isInSameSector(u->getPosition(), enemyCommandPosition)){
-					debug("Nope, adding!\n");
 					mineralsFoundByScout.insert(f);
+					debug("Nope, adding! Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
 				}else{
-					debug("Yeah, well that sucks\n");
+					debug("Yeah, well that sucks. Total: " + SSTR(mineralsFoundByScout.size()) + "\n");
 				}
 			}else{
 				debug("Well dunno if its in enemy sector, so fuck that, add to list =)\n");
@@ -593,10 +593,12 @@ void AITrabalhador (Unidade* u){
 	{
 		if(Protoss_Nexus != NULL)
 		{
+			debug("Nexus exists...");
 			std::set<Unidade*> minerais = Protoss_Nexus->getMinerals();
 	
 			if(!minerais.empty())
 			{
+				debug("still have some minerals, total: " + SSTR(minerais.size()) + "...\n");
 				for(std::set<Unidade*>::iterator it = minerais.begin(); it != minerais.end(); it++)
 				{
 					if(Protoss_Nexus->getDistance(*it) < distance)
@@ -608,17 +610,14 @@ void AITrabalhador (Unidade* u){
 		
 			}else 
 			{
+				debug("Need minerals from scout. Total: " + SSTR(mineralsFoundByScout.size()) + "...\n");
 				for(std::set<Unidade*>::iterator it = mineralsFoundByScout.begin(); it != mineralsFoundByScout.end(); it++)
 				{
-					if((*it)->minerals() > 0)
+					if(Protoss_Nexus->getDistance(*it) < distance)
 					{
-						if(Protoss_Nexus->getDistance(*it) < distance)
-						{
-							distance = Protoss_Nexus->getDistance(*it);
-							mineralPerto = *it;
-						}
-				
-					}else{mineralsFoundByScout.erase(*it);}
+						distance = Protoss_Nexus->getDistance(*it);
+						mineralPerto = *it;
+					}
 				}
 			}
 	
