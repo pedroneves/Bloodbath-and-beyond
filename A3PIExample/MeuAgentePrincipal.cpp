@@ -119,6 +119,7 @@ int protectionCCRadius = 45;
 Unidade* Protoss_Gateways [10];
 Unidade* Protoss_Pylons [10];
 Unidade* Protoss_Workers [10];
+std::set<Unidade*> All_Unities;
 Unidade* Selected_Worker;
 int numWorkers;
 int numGateways;
@@ -884,8 +885,7 @@ void updateBlackBoard(){
 	int w = 0;
 	int p = 0;
 	int g = 0;
-	std::set<Unidade*> unidades= Protoss_Nexus->getAllyUnits();
-	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++)
+	for(std::set<Unidade*>::iterator it = All_Unities.begin(); it != All_Unities.end(); it++)
 	{
 		if ((*it)->getType().isWorker() && (*it)!=scout)
 		{
@@ -1082,15 +1082,22 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 	else if(tipo == BWAPI::UnitTypes::Protoss_Gateway){
 		Protoss_Gateways[numGateways] = unidade;
 		numGateways = numGateways+1;
+		All_Unities.insert(unidade);
 	}else if(tipo == BWAPI::UnitTypes::Protoss_Pylon){
 		Protoss_Pylons[numPylons] = unidade;
 		numPylons = numPylons+1;
+		All_Unities.insert(unidade);
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
-		if(tipo == BWAPI::UnitTypes::Protoss_Probe && !hasScout){
-			hasScout = true;
-			scout = unidade;
+		if(tipo == BWAPI::UnitTypes::Protoss_Probe){
+			if(!hasScout)
+			{
+				hasScout = true;
+				scout = unidade;
+			}else{
+				All_Unities.insert(unidade);
+			}
 		}
 		CreateThread(NULL,0,threadAgente,(void*)unidade,0,NULL);
 	}
