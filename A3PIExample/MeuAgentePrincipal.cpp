@@ -619,7 +619,7 @@ void AITrabalhador (Unidade* u){
 			}
 	
 			if(mineralPerto != NULL){
-				u->gather(mineralPerto);
+				u->rightClick(mineralPerto);
 			}
 			if(mineralPerto == NULL){
 				u->move(Protoss_Nexus->getPosition());
@@ -640,7 +640,6 @@ Unidade* AIGuerreiro (Unidade* caboSoldado[]){
 
 	return cabo;
 }
-
 
 DWORD WINAPI threadAgente(LPVOID param){
 	
@@ -683,8 +682,6 @@ DWORD WINAPI threadAgente(LPVOID param){
 		Sleep(10);//Sempre dormir pelo menos 10ms no final do loop, pois uma iteracao da thread é muito mais rápida do que um turno do bwapi.
 	}
 }
-
-
 
 bool seekEnemyWorker(Unidade* u){
 	if(u){
@@ -898,6 +895,10 @@ void updateBlackBoard(){
 		{
 			Protoss_Workers [w] = (*it);
 			w++;
+		}
+		else if ((*it)->getType().isWorker() && (*it)==scout)
+		{
+			seesMinerals(*it);
 		}
 		else if ((*it)->getType() == BWAPI::UnitTypes::Protoss_Pylon)
 		{
