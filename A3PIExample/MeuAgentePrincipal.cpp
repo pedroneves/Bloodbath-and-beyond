@@ -99,6 +99,7 @@ std::set<Unidade*> mineralsFoundByScout;
 
 // Soldier vars ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+std::set<Unidade*> zealots;
 int enemyCommandGoalRadius = 50;
 int zealotCountAtBase = 0;
 bool hasEnoughSoldiersToStart = false;
@@ -778,9 +779,9 @@ void updateSoldiers(){
 	Unidade* f;
 	zealotCountAtBase = 0;
 
-	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
+	for(std::set<Unidade*>::iterator it = zealots.begin(); it != zealots.end(); it++) {
 		f = *it;
-		if(isZealot(f) && f->isIdle()){
+		if(f->exists() && isZealot(f) && f->isIdle()){
 			if(isInSameSector(f->getPosition(), Protoss_Nexus->getPosition())){
 				zealotCountAtBase = zealotCountAtBase + 1;
 			}
@@ -795,9 +796,9 @@ void updateSoldiers(){
 		hasEnoughSoldiersToStart = (zealotCountAtBase >= minimumAmountOfSoldiersToStartAttack);
 	}
 
-	for(std::set<Unidade*>::iterator it = unidades.begin(); it != unidades.end(); it++) {
+	for(std::set<Unidade*>::iterator it = zealots.begin(); it != zealots.end(); it++) {
 		f = *it;
-		if(isZealot(f)){
+		if(f->exists() && isZealot(f)){
 			soldierVision(f);
 
 			int randX = (rand() % protectionCCRadius);
@@ -1095,6 +1096,8 @@ void MeuAgentePrincipal::UnidadeCriada(Unidade* unidade){
 		Protoss_Pylons[numPylons] = unidade;
 		numPylons = numPylons+1;
 		All_Unities.insert(unidade);
+	}else if(tipo == BWAPI::UnitTypes::Protoss_Zealot){
+		zealots.insert(unidade);
 	}
 	//Nao desperdicar threads com predios que nao fazem nada
 	else if(!tipo.canProduce()){
